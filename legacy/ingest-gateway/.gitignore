@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.env.local
+.DS_Store
+*.log
+
+# Frontend bundle artifacts
+MCC-IG Console UI Design/node_modules/
+MCC-IG Console UI Design/dist/
+MCC-IG Console UI Design/.env

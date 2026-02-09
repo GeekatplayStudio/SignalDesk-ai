@@ -1,0 +1,17 @@
+# Dependencies
+node_modules
+
+# Builds
+dist
+.next
+out
+build
+coverage
+
+# Env / misc
+.env
+.env.local
+.env.*.local
+.DS_Store
+*.log
+*.tsbuildinfo

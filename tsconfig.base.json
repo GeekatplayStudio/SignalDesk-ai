@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "lib": ["ES2020", "DOM"],
+    "types": ["node"],
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": "./",
+    "paths": {
+      "@agentops/shared/*": ["packages/shared/src/*"],
+      "@agentops/db": ["packages/db/src/index"],
+      "@agentops/db/*": ["packages/db/src/*"],
+      "@agentops/telemetry/*": ["packages/telemetry/src/*"],
+      "@agentops/ui/*": ["packages/ui/src/*"]
+    }
+  }
+}

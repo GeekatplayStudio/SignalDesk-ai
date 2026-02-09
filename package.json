@@ -1,0 +1,27 @@
+{
+  "name": "agentops-studio",
+  "version": "0.0.1",
+  "private": true,
+  "engines": {
+    "node": ">=18.18.0"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "infra"
+  ],
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "format": "pnpm -r format"
+  },
+  "devDependencies": {
+    "eslint": "8.57.1",
+    "eslint-config-next": "14.2.5",
+    "@typescript-eslint/parser": "7.18.0",
+    "@typescript-eslint/eslint-plugin": "7.18.0"
+  }
+}

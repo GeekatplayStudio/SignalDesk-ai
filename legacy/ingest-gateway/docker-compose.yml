@@ -1,0 +1,81 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mccig
+      POSTGRES_USER: mccig
+      POSTGRES_PASSWORD: mccig
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U mccig -d mccig']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: ${PORT:-3005}
+      DATABASE_URL: postgresql://mccig:mccig@postgres:5432/mccig
+      REDIS_URL: redis://redis:6379
+      REDIS_QUEUE_KEY: queue:conversations
+      REDIS_DLQ_KEY: dlq:conversations
+      IDEMPOTENCY_TTL_SECONDS: 86400
+      RATE_LIMIT_CAPACITY: 100
+      RATE_LIMIT_REFILL_RATE: 50
+      WORKER_MAX_RETRIES: 3
+      WORKER_BASE_BACKOFF_MS: 100
+      ENABLE_INTERNAL_ENDPOINTS: 'true'
+      ENABLE_CORS: 'true'
+      CORS_ORIGIN: '*'
+      ENABLE_SIMULATION_MODE: ${ENABLE_SIMULATION_MODE:-false}
+    ports:
+      - '${APP_PORT:-3005}:${PORT:-3005}'
+    command: ['npm', 'run', 'start']
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://mccig:mccig@postgres:5432/mccig
+      REDIS_URL: redis://redis:6379
+      REDIS_QUEUE_KEY: queue:conversations
+      REDIS_DLQ_KEY: dlq:conversations
+      WORKER_MAX_RETRIES: 3
+      WORKER_BASE_BACKOFF_MS: 100
+      ENABLE_SIMULATION_MODE: ${ENABLE_SIMULATION_MODE:-false}
+    command: ['npm', 'run', 'start:worker']
+
+volumes:
+  postgres_data:

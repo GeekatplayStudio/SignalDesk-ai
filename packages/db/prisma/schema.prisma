@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id          String        @id @default(uuid())
+  name        String
+  createdAt   DateTime      @default(now())
+  conversations Conversation[]
+}
+
+model Conversation {
+  id          String       @id @default(uuid())
+  tenant      Tenant?      @relation(fields: [tenantId], references: [id])
+  tenantId    String?
+  title       String?
+  createdAt   DateTime     @default(now())
+  messages    Message[]
+  ingestEvents IngestEvent[]
+  agentRuns   AgentRun[]
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  conversationId String
+  role           String
+  content        String
+  createdAt      DateTime     @default(now())
+}
+
+model IngestEvent {
+  id             String       @id @default(uuid())
+  conversation   Conversation? @relation(fields: [conversationId], references: [id])
+  conversationId String?
+  providerMessageId String
+  channel        String
+  payload        Json
+  createdAt      DateTime     @default(now())
+
+  @@index([providerMessageId])
+  @@index([channel])
+}
+
+model AgentRun {
+  id             String       @id @default(uuid())
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  conversationId String
+  status         String
+  latencyMs      Int?
+  createdAt      DateTime     @default(now())
+  toolCalls      ToolCall[]
+}
+
+model ToolCall {
+  id         String   @id @default(uuid())
+  agentRun   AgentRun @relation(fields: [agentRunId], references: [id])
+  agentRunId String
+  tool       String
+  status     String
+  request    Json
+  response   Json?
+  latencyMs  Int?
+  createdAt  DateTime @default(now())
+}
+
+model EvalSuite {
+  id        String    @id @default(uuid())
+  name      String
+  version   String
+  createdAt DateTime  @default(now())
+  runs      EvalRun[]
+  cases     EvalCase[]
+}
+
+model EvalRun {
+  id        String    @id @default(uuid())
+  suite     EvalSuite @relation(fields: [suiteId], references: [id])
+  suiteId   String
+  status    String
+  passRate  Float?
+  createdAt DateTime  @default(now())
+}
+
+model EvalCase {
+  id        String    @id @default(uuid())
+  suite     EvalSuite @relation(fields: [suiteId], references: [id])
+  suiteId   String
+  name      String
+  prompt    String
+  expected  String?
+}
+
+model GuardrailViolation {
+  id             String   @id @default(uuid())
+  conversationId String?
+  type           String
+  severity       String
+  detail         String
+  createdAt      DateTime @default(now())
+}
+
+model MetricPoint {
+  id        String   @id @default(uuid())
+  name      String
+  value     Float
+  labels    Json?
+  timestamp DateTime @default(now())
+}
+
+model Incident {
+  id        String   @id @default(uuid())
+  type      String
+  status    String
+  createdAt DateTime @default(now())
+}

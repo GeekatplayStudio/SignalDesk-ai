@@ -1,0 +1,8 @@
+id: booking_happy
+category: booking
+description: Happy path booking flow should invoke the search_flights tool.
+turns:
+  - user: "I want to book a flight from NYC to SFO tomorrow."
+    expected_tool: search_flights
+    expected_response: Calling search_flights
+    allow_refusal: false
