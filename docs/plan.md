@@ -21,8 +21,9 @@ _Updated: 2026-02-09_
 
 ## Progress notes
 - Steps 1–3 done: monorepo scaffolded, legacy repos staged, ingestion gateway integrated into `apps/api` and `apps/worker`, agent/eval/ops endpoints added, guardrail goldens/prompts copied into shared package, dashboard hooked to new APIs.
-- Prisma wiring started: ingestion storage now uses Prisma repositories; schema updated with unique `providerMessageId`. Prisma client still needs `prisma generate` on a writable cache path to finalize.
+- Prisma wiring started: ingestion and agent flows use Prisma repositories; schema updated with unique `providerMessageId`. Prisma client still needs `prisma generate` on a writable cache path to finalize.
 - Queue standardized to BullMQ for ingestion; seed script added (`pnpm seed`) to create demo data.
+- UI shell: sidebar scaffold added in Next.js layout; pages to follow.
 
 ## Next actions
 1) Finish Step 3: migrate agent orchestrator, guardrails runner, and ops observability code into TypeScript API/worker and shared packages; begin UI consolidation into `apps/web`.
