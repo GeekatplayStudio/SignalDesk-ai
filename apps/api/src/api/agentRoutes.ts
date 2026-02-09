@@ -18,18 +18,24 @@ export function createAgentRouter(agentService: AgentService): Router {
     }
   });
 
-  router.get('/v1/conversations', (_req, res) => {
-    return res.json({ conversations: agentService.getConversations() });
+  router.get('/v1/conversations', async (_req, res) => {
+    const conversations = await agentService.getConversations();
+    return res.json({ conversations });
   });
 
-  router.get('/v1/conversations/:id', (req, res) => {
-    const conversation = agentService.getConversation(req.params.id);
+  router.get('/v1/conversations/:id', async (req, res) => {
+    const conversation = await agentService.getConversation(req.params.id);
     if (!conversation) return res.status(404).json({ error: 'not_found' });
-    return res.json({ conversation, messages: agentService.getMessages(req.params.id), runs: agentService.getAgentRuns(req.params.id) });
+    const [messages, runs] = await Promise.all([
+      agentService.getMessages(req.params.id),
+      agentService.getAgentRuns(req.params.id),
+    ]);
+    return res.json({ conversation, messages, runs });
   });
 
-  router.get('/v1/agent/runs', (_req, res) => {
-    return res.json({ runs: agentService.getAgentRuns() });
+  router.get('/v1/agent/runs', async (_req, res) => {
+    const runs = await agentService.getAgentRuns();
+    return res.json({ runs });
   });
 
   return router;

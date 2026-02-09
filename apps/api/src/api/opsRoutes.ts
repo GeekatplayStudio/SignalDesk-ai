@@ -21,11 +21,12 @@ function percentile(values: number[], p: number): number | null {
 export function createOpsRouter(agentService: AgentService): Router {
   const router = Router();
 
-  router.get('/v1/metrics/overview', (_req, res) => {
-    const runs = agentService.getAgentRuns();
-    const latencies = runs.map((r) => r.latencyMs ?? 0).filter((n) => n > 0);
-    const toolFailures = runs.filter((r) => r.toolCalls.some((t) => t.status === 'failed')).length;
-    const handoffs = runs.filter((r) => r.toolCalls.some((t) => t.tool === 'handoff_to_human')).length;
+  router.get('/v1/metrics/overview', async (_req, res) => {
+    const runs = await agentService.getAgentRuns();
+    type Run = (typeof runs)[number];
+    const latencies = runs.map((r: Run) => r.latencyMs ?? 0).filter((n: number) => n > 0);
+    const toolFailures = runs.filter((r: Run) => r.toolCalls.some((t: Run['toolCalls'][number]) => t.status === 'failed')).length;
+    const handoffs = runs.filter((r: Run) => r.toolCalls.some((t: Run['toolCalls'][number]) => t.tool === 'handoff_to_human')).length;
 
     return res.json({
       p50_latency_ms: percentile(latencies, 50),

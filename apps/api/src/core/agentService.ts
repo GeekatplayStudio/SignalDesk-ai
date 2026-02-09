@@ -1,34 +1,7 @@
+import { prisma } from '@agentops/db';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { chooseTool, runTool, ToolCallResult, ToolName } from './tooling';
-
-export interface Conversation {
-  id: string;
-  title?: string;
-  createdAt: string;
-  tenantId?: string;
-}
-
-export interface Message {
-  id: string;
-  conversationId: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  createdAt: string;
-}
-
-export interface AgentRun {
-  id: string;
-  conversationId: string;
-  status: 'pending' | 'running' | 'succeeded' | 'failed';
-  latencyMs?: number;
-  createdAt: string;
-  toolCalls: ToolCallResult[];
-}
-
-const conversations: Conversation[] = [];
-const messages: Message[] = [];
-const agentRuns: AgentRun[] = [];
 
 export const agentRespondSchema = z.object({
   conversation_id: z.string().uuid().optional(),
@@ -37,74 +10,79 @@ export const agentRespondSchema = z.object({
 });
 
 export class AgentService {
-  createConversation(input: { tenantId?: string; title?: string }): Conversation {
-    const conversation: Conversation = {
-      id: randomUUID(),
-      title: input.title,
-      tenantId: input.tenantId,
-      createdAt: new Date().toISOString(),
-    };
-    conversations.push(conversation);
-    return conversation;
-  }
-
-  getConversations(): Conversation[] {
-    return conversations.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }
-
-  getConversation(id: string): Conversation | undefined {
-    return conversations.find((c) => c.id === id);
-  }
-
-  getMessages(conversationId: string): Message[] {
-    return messages.filter((m) => m.conversationId === conversationId);
-  }
-
-  getAgentRuns(conversationId?: string): AgentRun[] {
-    return conversationId ? agentRuns.filter((r) => r.conversationId === conversationId) : agentRuns;
-  }
-
-  async respond(payload: z.infer<typeof agentRespondSchema>): Promise<AgentRun> {
-    const conversation = payload.conversation_id
-      ? this.getConversation(payload.conversation_id)
-      : this.createConversation({ tenantId: payload.tenant_id });
-
-    if (!conversation) {
-      throw new Error('conversation_not_found');
+  async upsertConversation(input: { conversationId?: string; tenantId?: string; title?: string }) {
+    if (input.conversationId) {
+      const existing = await prisma.conversation.findUnique({ where: { id: input.conversationId } });
+      if (existing) return existing;
     }
+    return prisma.conversation.create({ data: { id: input.conversationId, tenantId: input.tenantId, title: input.title } });
+  }
 
-    const userMessage: Message = {
-      id: randomUUID(),
-      conversationId: conversation.id,
-      role: 'user',
-      content: payload.message,
-      createdAt: new Date().toISOString(),
-    };
-    messages.push(userMessage);
+  async getConversations() {
+    return prisma.conversation.findMany({ orderBy: { createdAt: 'desc' } });
+  }
+
+  async getConversation(id: string) {
+    return prisma.conversation.findUnique({ where: { id } });
+  }
+
+  async getMessages(conversationId: string) {
+    return prisma.message.findMany({ where: { conversationId }, orderBy: { createdAt: 'asc' } });
+  }
+
+  async getAgentRuns(conversationId?: string) {
+    return prisma.agentRun.findMany({
+      where: conversationId ? { conversationId } : undefined,
+      orderBy: { createdAt: 'desc' },
+      include: { toolCalls: true },
+    });
+  }
+
+  async respond(payload: z.infer<typeof agentRespondSchema>) {
+    const conversation = await this.upsertConversation({
+      conversationId: payload.conversation_id,
+      tenantId: payload.tenant_id,
+    });
+
+    const userMessage = await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        role: 'user',
+        content: payload.message,
+      },
+    });
 
     const tool: ToolName = chooseTool(payload.message);
     const started = Date.now();
     const toolResult = runTool(tool, {});
 
-    const assistantMessage: Message = {
-      id: randomUUID(),
-      conversationId: conversation.id,
-      role: 'assistant',
-      content: renderAssistantReply(toolResult),
-      createdAt: new Date().toISOString(),
-    };
-    messages.push(assistantMessage);
+    const assistantMessage = await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        role: 'assistant',
+        content: renderAssistantReply(toolResult),
+      },
+    });
 
-    const run: AgentRun = {
-      id: randomUUID(),
-      conversationId: conversation.id,
-      status: toolResult.status === 'succeeded' ? 'succeeded' : 'failed',
-      latencyMs: Date.now() - started,
-      createdAt: new Date().toISOString(),
-      toolCalls: [toolResult],
-    };
-    agentRuns.push(run);
-    return run;
+    const run = await prisma.agentRun.create({
+      data: {
+        conversationId: conversation.id,
+        status: toolResult.status === 'succeeded' ? 'succeeded' : 'failed',
+        latencyMs: Date.now() - started,
+        toolCalls: {
+          create: {
+            tool: toolResult.tool,
+            status: toolResult.status,
+            request: {},
+            response: toolResult.output,
+            latencyMs: toolResult.latencyMs,
+          },
+        },
+      },
+      include: { toolCalls: true },
+    });
+
+    return { run, messages: [userMessage, assistantMessage] };
   }
 }
 
