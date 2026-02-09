@@ -1,0 +1,14 @@
+node_modules
+.git
+.turbo
+.next
+dist
+build
+coverage
+*.log
+.DS_Store
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+tmp
+.cache
