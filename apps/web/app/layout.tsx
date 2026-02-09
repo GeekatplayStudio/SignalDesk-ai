@@ -1,8 +1,8 @@
 import './globals.css';
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { Providers } from './providers';
 import { Sidebar } from './ui/sidebar';
-import Link from 'next/link';
 
 const navItems = [
   { href: '/', label: 'Overview' },
@@ -27,9 +27,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               </div>
               <Sidebar items={navItems} />
             </aside>
-            <main className="flex-1 overflow-y-auto px-8 py-8 bg-slate-950">
-              {children}
-            </main>
+            <main className="flex-1 overflow-y-auto px-8 py-8 bg-slate-950">{children}</main>
           </div>
         </Providers>
       </body>
