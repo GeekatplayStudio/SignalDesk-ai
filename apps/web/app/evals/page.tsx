@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { useRunEvals } from './actions';
 
 type EvalRun = {
   id: string;
@@ -21,14 +22,28 @@ export default function EvalsPage() {
     },
   });
 
+  const runEvals = useRunEvals();
+
   return (
     <div className="space-y-4">
-      <div>
-        <p className="text-sm uppercase tracking-wide text-slate-400">Evals</p>
-        <h1 className="text-2xl font-semibold">Evaluation runs</h1>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm uppercase tracking-wide text-slate-400">Evals</p>
+          <h1 className="text-2xl font-semibold">Evaluation runs</h1>
+        </div>
+        <button
+          onClick={() => runEvals.mutate()}
+          disabled={runEvals.isPending}
+          className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
+        >
+          {runEvals.isPending ? 'Running…' : 'Run evals'}
+        </button>
       </div>
       {isLoading && <p className="text-sm text-slate-400">Loading…</p>}
       {error && <p className="text-sm text-rose-400">Error: {(error as Error).message}</p>}
+      {runEvals.error && (
+        <p className="text-sm text-rose-400">Error: {(runEvals.error as Error).message}</p>
+      )}
 
       <div className="space-y-2">
         {data?.runs?.map((run) => (
