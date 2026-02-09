@@ -17,7 +17,10 @@
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "format": "prettier --write .",
-    "seed": "pnpm dlx tsx scripts/seed.ts"
+    "seed": "pnpm dlx tsx scripts/seed.ts",
+    "db:generate": "pnpm --filter @agentops/db prisma generate",
+    "db:push": "pnpm --filter @agentops/db prisma db push",
+    "db:migrate": "pnpm --filter @agentops/db prisma migrate deploy"
   },
   "devDependencies": {
     "eslint": "8.57.1",

@@ -21,4 +21,10 @@ pnpm install
 pnpm dev
 ```
 
+### Database + Prisma
+- Generate client (requires writable cache): `PRISMA_ENGINE_CACHE_DIR=$(pwd)/.prisma-cache pnpm db:generate`
+- Push schema to Postgres (dev): `pnpm db:push`
+- Apply migrations (prod): `pnpm db:migrate`
+- Seed demo data: `pnpm seed` (expects Postgres/Redis running)
+
 Detailed setup, architecture, and run instructions will be documented as integration proceeds.
