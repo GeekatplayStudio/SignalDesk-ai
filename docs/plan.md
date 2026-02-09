@@ -24,6 +24,7 @@ _Updated: 2026-02-09_
 - Prisma wiring started: ingestion and agent flows use Prisma repositories; schema updated with unique `providerMessageId`. Prisma client still needs `prisma generate` on a writable cache path to finalize.
 - Queue standardized to BullMQ for ingestion; seed script added (`pnpm seed`) to create demo data.
 - UI shell: sidebar scaffold added in Next.js layout; pages to follow.
+- Added dashboard list/detail pages (conversations, runs, evals trigger, metrics, incidents) and overview doc.
 
 ## Next actions
 1) Finish Step 3: migrate agent orchestrator, guardrails runner, and ops observability code into TypeScript API/worker and shared packages; begin UI consolidation into `apps/web`.

@@ -13,7 +13,7 @@ Imported source (for reference while refactoring) lives under `legacy/`:
 - Apps: `apps/api`, `apps/web`, `apps/worker`
 - Packages: `packages/shared`, `packages/db`, `packages/telemetry`, `packages/ui`
 - Infra: `infra` (docker-compose, env examples)
-- Docs: `docs`
+- Docs: `docs` (overview in `docs/overview.md`, plan in `docs/plan.md`)
 
 ## Getting Started (WIP)
 ```
