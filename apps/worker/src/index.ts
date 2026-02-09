@@ -1,16 +1,14 @@
 import { env } from './infra/env';
-import { createPostgresPool } from './infra/postgres';
-import { PostgresConversationEventRepository } from './infra/postgresConversationEventRepository';
+import { PrismaConversationEventRepository } from './infra/prismaConversationEventRepository';
 import { createRedisClient } from './infra/redisClient';
 import { RedisQueueClient } from './infra/redisQueueClient';
 import { ConversationWorker } from './worker';
 
 async function main(): Promise<void> {
   const redis = createRedisClient(env.redisUrl);
-  const pool = createPostgresPool(env.databaseUrl);
 
   const queueClient = new RedisQueueClient(redis, env.redisQueueKey, env.redisDlqKey);
-  const repository = new PostgresConversationEventRepository(pool);
+  const repository = new PrismaConversationEventRepository();
 
   const worker = new ConversationWorker(queueClient, repository, {
     maxRetries: env.workerMaxRetries,
@@ -22,7 +20,6 @@ async function main(): Promise<void> {
   const shutdown = async () => {
     worker.stop();
     await redis.quit();
-    await pool.end();
     process.exit(0);
   };
 

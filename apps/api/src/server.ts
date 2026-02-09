@@ -2,8 +2,7 @@ import { createApp } from './api/app';
 import { IngestionService } from './core/ingestionService';
 import { env } from './infra/env';
 import { AgentService } from './core/agentService';
-import { createPostgresPool } from './infra/postgres';
-import { PostgresConversationEventRepository } from './infra/postgresConversationEventRepository';
+import { PrismaConversationEventRepository } from './infra/prismaConversationEventRepository';
 import { RedisIdempotencyStore } from './infra/redisIdempotencyStore';
 import { RedisQueueClient } from './infra/redisQueueClient';
 import { createRedisClient } from './infra/redisClient';
@@ -11,8 +10,7 @@ import { RedisTokenBucketRateLimiter } from './infra/redisTokenBucketRateLimiter
 
 async function main(): Promise<void> {
   const redis = createRedisClient(env.redisUrl);
-  const pool = createPostgresPool(env.databaseUrl);
-  const eventRepository = new PostgresConversationEventRepository(pool);
+  const eventRepository = new PrismaConversationEventRepository();
 
   const idempotencyStore = new RedisIdempotencyStore(redis);
   const rateLimiter = new RedisTokenBucketRateLimiter(
@@ -56,7 +54,6 @@ async function main(): Promise<void> {
   const shutdown = async () => {
     server.close(async () => {
       await redis.quit();
-      await pool.end();
       process.exit(0);
     });
   };
