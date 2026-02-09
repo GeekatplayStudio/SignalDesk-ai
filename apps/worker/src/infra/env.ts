@@ -54,6 +54,7 @@ export const env = {
   rateLimitRefillRatePerSecond: optionalNumber('RATE_LIMIT_REFILL_RATE', 50),
   workerMaxRetries: optionalNumber('WORKER_MAX_RETRIES', 3),
   workerBaseBackoffMs: optionalNumber('WORKER_BASE_BACKOFF_MS', 100),
+  workerConcurrency: optionalNumber('WORKER_CONCURRENCY', 5),
   enableInternalEndpoints: optionalBoolean('ENABLE_INTERNAL_ENDPOINTS', true),
   enableCors: optionalBoolean('ENABLE_CORS', true),
   corsOrigin: process.env.CORS_ORIGIN ?? '*',

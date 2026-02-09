@@ -16,12 +16,14 @@
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
-    "format": "pnpm -r format"
+    "format": "pnpm -r format",
+    "seed": "pnpm dlx tsx scripts/seed.ts"
   },
   "devDependencies": {
     "eslint": "8.57.1",
     "eslint-config-next": "14.2.5",
     "@typescript-eslint/parser": "7.18.0",
-    "@typescript-eslint/eslint-plugin": "7.18.0"
+    "@typescript-eslint/eslint-plugin": "7.18.0",
+    "tsx": "^4.19.2"
   }
 }

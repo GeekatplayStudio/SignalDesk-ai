@@ -1,25 +1,13 @@
+import { startBullWorker } from './infra/bullWorker';
 import { env } from './infra/env';
-import { PrismaConversationEventRepository } from './infra/prismaConversationEventRepository';
-import { createRedisClient } from './infra/redisClient';
-import { RedisQueueClient } from './infra/redisQueueClient';
-import { ConversationWorker } from './worker';
 
 async function main(): Promise<void> {
-  const redis = createRedisClient(env.redisUrl);
-
-  const queueClient = new RedisQueueClient(redis, env.redisQueueKey, env.redisDlqKey);
-  const repository = new PrismaConversationEventRepository();
-
-  const worker = new ConversationWorker(queueClient, repository, {
-    maxRetries: env.workerMaxRetries,
-    baseBackoffMs: env.workerBaseBackoffMs,
-    queuePollBlockMs: 1000,
-    enableSimulationMode: env.enableSimulationMode,
-  });
+  const { worker, events, connection } = startBullWorker();
 
   const shutdown = async () => {
-    worker.stop();
-    await redis.quit();
+    await worker.close();
+    await events.close();
+    await connection.quit();
     process.exit(0);
   };
 
@@ -27,8 +15,7 @@ async function main(): Promise<void> {
   process.on('SIGTERM', shutdown);
 
   // eslint-disable-next-line no-console
-  console.log('MCC-IG worker started');
-  await worker.start();
+  console.log(`Worker listening on queue ${env.redisQueueKey}`);
 }
 
 main().catch((error) => {

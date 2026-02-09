@@ -4,21 +4,22 @@ import { env } from './infra/env';
 import { AgentService } from './core/agentService';
 import { PrismaConversationEventRepository } from './infra/prismaConversationEventRepository';
 import { RedisIdempotencyStore } from './infra/redisIdempotencyStore';
-import { RedisQueueClient } from './infra/redisQueueClient';
 import { createRedisClient } from './infra/redisClient';
 import { RedisTokenBucketRateLimiter } from './infra/redisTokenBucketRateLimiter';
+import { createIngestQueue } from './infra/bullQueue';
+import { BullQueueClient } from './infra/bullQueueClient';
 
 async function main(): Promise<void> {
   const redis = createRedisClient(env.redisUrl);
   const eventRepository = new PrismaConversationEventRepository();
-
+  const { queue, connection: queueConnection } = createIngestQueue();
+  const queueClient = new BullQueueClient(queue);
   const idempotencyStore = new RedisIdempotencyStore(redis);
   const rateLimiter = new RedisTokenBucketRateLimiter(
     redis,
     env.rateLimitCapacity,
     env.rateLimitRefillRatePerSecond,
   );
-  const queueClient = new RedisQueueClient(redis, env.redisQueueKey, env.redisDlqKey);
 
   const ingestionService = new IngestionService(idempotencyStore, rateLimiter, queueClient, {
     idempotencyTtlSeconds: env.idempotencyTtlSeconds,
@@ -53,6 +54,8 @@ async function main(): Promise<void> {
 
   const shutdown = async () => {
     server.close(async () => {
+      await queue.close();
+      await queueConnection.quit();
       await redis.quit();
       process.exit(0);
     });
