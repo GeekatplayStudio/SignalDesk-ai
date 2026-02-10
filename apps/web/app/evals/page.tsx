@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useRunEvals } from './actions';
+import { Button } from '@/components/ui/button';
 
 type EvalRun = {
   id: string;
@@ -31,13 +32,9 @@ export default function EvalsPage() {
           <p className="text-sm uppercase tracking-wide text-slate-400">Evals</p>
           <h1 className="text-2xl font-semibold">Evaluation runs</h1>
         </div>
-        <button
-          onClick={() => runEvals.mutate()}
-          disabled={runEvals.isPending}
-          className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
-        >
+        <Button onClick={() => runEvals.mutate()} disabled={runEvals.isPending}>
           {runEvals.isPending ? 'Running…' : 'Run evals'}
-        </button>
+        </Button>
       </div>
       {isLoading && <p className="text-sm text-slate-400">Loading…</p>}
       {error && <p className="text-sm text-rose-400">Error: {(error as Error).message}</p>}

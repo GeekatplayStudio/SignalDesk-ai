@@ -11,6 +11,7 @@ COPY packages ./packages
 COPY apps/api ./apps/api
 
 RUN pnpm install --filter @agentops/api... --ignore-scripts --no-frozen-lockfile
+RUN pnpm --filter @agentops/db generate
 RUN pnpm --filter @agentops/api build
 
 FROM node:20-slim

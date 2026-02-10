@@ -15,16 +15,28 @@ Imported source (for reference while refactoring) lives under `legacy/`:
 - Infra: `infra` (docker-compose, env examples)
 - Docs: `docs` (overview in `docs/overview.md`, plan in `docs/plan.md`)
 
-## Getting Started (WIP)
+## Getting Started (demo-ready)
 ```
-pnpm install
+# install deps (reuse existing pnpm store path if present)
+pnpm install --store-dir "$HOME/Library/pnpm/store/v3"
+
+# generate Prisma client (needs writable cache path in some sandboxes)
+cd packages/db
+PRISMA_ENGINE_CACHE_DIR="$(pwd)/.prisma-cache" pnpm prisma generate
+cd ../..
+
+# push schema and seed demo data (Postgres + Redis must be running)
+pnpm db:push
+pnpm seed
+
+# run all apps (api, worker, web)
 pnpm dev
 ```
 
-### Database + Prisma
-- Generate client (requires writable cache): `PRISMA_ENGINE_CACHE_DIR=$(pwd)/.prisma-cache pnpm db:generate`
-- Push schema to Postgres (dev): `pnpm db:push`
-- Apply migrations (prod): `pnpm db:migrate`
-- Seed demo data: `pnpm seed` (expects Postgres/Redis running)
-
-Detailed setup, architecture, and run instructions will be documented as integration proceeds.
+### Docker Compose (prod-like demo)
+```
+cd infra
+cp .env.example ../.env   # adjust if needed
+docker compose up --build
+```
+`NEXT_PUBLIC_API_BASE_URL` is pre-set for compose; keep ports 3000 (web) and 3001 (api) free.

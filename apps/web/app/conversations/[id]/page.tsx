@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 type Message = {
   id: string;
@@ -71,26 +72,40 @@ export default function ConversationDetailPage() {
 
       <section className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-3">
         <h2 className="text-lg font-medium">Agent Runs</h2>
-        <div className="space-y-2">
-          {data?.runs?.map((run) => (
-            <div key={run.id} className="rounded-lg border border-slate-800 px-3 py-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Run {run.id.slice(0, 8)}</p>
-                  <p className="text-xs text-slate-500">{new Date(run.createdAt).toLocaleString()}</p>
-                </div>
-                <span className="text-xs px-2 py-1 rounded bg-slate-800 text-slate-200">
-                  {run.status} {run.latencyMs ? `(${run.latencyMs} ms)` : ''}
-                </span>
-              </div>
-              <p className="text-xs text-slate-400">
-                Tools: {run.toolCalls.map((t) => `${t.tool}${t.status === 'failed' ? ' (fail)' : ''}`).join(', ')}
-              </p>
-            </div>
-          ))}
-          {data && data.runs.length === 0 && (
-            <p className="text-sm text-slate-500">No runs yet.</p>
-          )}
+        <div className="overflow-x-auto -mx-4 md:mx-0">
+          <div className="min-w-[600px]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Run</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Latency</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Tool Calls</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data?.runs?.map((run) => (
+                  <TableRow key={run.id}>
+                    <TableCell>{run.id.slice(0, 8)}</TableCell>
+                    <TableCell>{run.status}</TableCell>
+                    <TableCell>{run.latencyMs ? `${run.latencyMs} ms` : '—'}</TableCell>
+                    <TableCell>{new Date(run.createdAt).toLocaleString()}</TableCell>
+                    <TableCell className="text-xs text-slate-300">
+                      {run.toolCalls.map((t) => `${t.tool}${t.status === 'failed' ? ' (fail)' : ''}`).join(', ')}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {!isLoading && data?.runs?.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-slate-500">
+                      No runs yet.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       </section>
     </div>

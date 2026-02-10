@@ -1,4 +1,4 @@
-import { prisma } from '@agentops/db';
+import { Prisma, prisma } from '@agentops/db';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { chooseTool, runTool, ToolCallResult, ToolName } from './tooling';
@@ -71,13 +71,13 @@ export class AgentService {
         latencyMs: Date.now() - started,
         toolCalls: {
           create: {
-            tool: toolResult.tool,
-            status: toolResult.status,
-            request: {},
-            response: toolResult.output,
-            latencyMs: toolResult.latencyMs,
-          },
-        },
+        tool: toolResult.tool,
+        status: toolResult.status,
+        request: {},
+        response: toolResult.output as any,
+        latencyMs: toolResult.latencyMs,
+      },
+    },
       },
       include: { toolCalls: true },
     });

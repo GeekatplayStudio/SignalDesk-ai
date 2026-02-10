@@ -8,6 +8,7 @@ COPY packages ./packages
 COPY apps/worker ./apps/worker
 
 RUN pnpm install --filter @agentops/worker... --ignore-scripts --no-frozen-lockfile
+RUN pnpm --filter @agentops/db generate
 RUN pnpm --filter @agentops/worker build
 
 FROM node:20-slim

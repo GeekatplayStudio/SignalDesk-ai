@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
 
@@ -35,7 +36,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard label="p50 latency" value={metrics.data?.p50_latency_ms ? `${metrics.data.p50_latency_ms} ms` : '—'} loading={metrics.isLoading} />
         <StatCard label="tool failure rate" value={metrics.data ? `${Math.round(metrics.data.tool_failure_rate * 100)}%` : '—'} loading={metrics.isLoading} />
         <StatCard label="handoff rate" value={metrics.data ? `${Math.round(metrics.data.handoff_rate * 100)}%` : '—'} loading={metrics.isLoading} />
@@ -91,9 +92,13 @@ export default function HomePage() {
 
 function StatCard({ label, value, loading }: { label: string; value: string; loading: boolean }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-      <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="text-2xl font-semibold mt-1">{loading ? '…' : value}</p>
-    </div>
+    <Card>
+      <CardHeader className="pb-2">
+        <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
+      </CardHeader>
+      <CardContent>
+        <p className="text-2xl font-semibold">{loading ? '…' : value}</p>
+      </CardContent>
+    </Card>
   );
 }

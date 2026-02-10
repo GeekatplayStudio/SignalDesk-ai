@@ -2,12 +2,8 @@
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import {
-  ColumnDef,
-  getCoreRowModel,
-  useReactTable,
-  flexRender,
-} from '@tanstack/react-table';
+import { ColumnDef, getCoreRowModel, useReactTable, flexRender } from '@tanstack/react-table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 type ToolCall = { tool: string; status: string };
 type AgentRun = {
@@ -73,38 +69,40 @@ export default function AgentRunsPage() {
       {isLoading && <p className="text-sm text-slate-400">Loading…</p>}
       {error && <p className="text-sm text-rose-400">Error: {(error as Error).message}</p>}
 
-      <div className="overflow-hidden rounded-xl border border-slate-800">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-900/50 text-slate-300">
-            {table.getHeaderGroups().map((hg) => (
-              <tr key={hg.id}>
-                {hg.headers.map((header) => (
-                  <th key={header.id} className="px-3 py-2 text-left font-medium">
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="border-t border-slate-900">
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-3 py-2 text-slate-200">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
-            {!isLoading && (data?.runs?.length ?? 0) === 0 && (
-              <tr>
-                <td className="px-3 py-4 text-slate-500" colSpan={columns.length}>
-                  No runs yet. Trigger /v1/agent/respond to create runs.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <div className="overflow-x-auto -mx-4 md:mx-0">
+        <div className="min-w-[700px] overflow-hidden rounded-xl border border-slate-800">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((hg) => (
+                <TableRow key={hg.id}>
+                  {hg.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.map((row) => (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+              {!isLoading && (data?.runs?.length ?? 0) === 0 && (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="text-slate-500">
+                    No runs yet. Trigger /v1/agent/respond to create runs.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   );
