@@ -1,63 +1,82 @@
-# AgentOps Studio – Detailed Guide
+# Geekatplay Studio App Explainer
 
-## What this application is
-AgentOps Studio is a monorepo that delivers a production-style control plane for AI agent operations. It ingests multichannel user events, runs agent tools, evaluates quality/guardrails, and surfaces operational metrics/incidents in a Next.js dashboard.
+## Purpose
+Geekatplay Studio is an operator-facing platform for AI chat management. It gives one runtime for:
+- receiving customer messages across channels
+- routing each message through assistant logic + tools
+- recording outcomes for observability/evals
+- surfacing operational status in a dashboard
 
-## Core pieces (monorepo layout)
-- `apps/api` — Express API that exposes ingest endpoints, agent respond, eval triggers, metrics, and incident simulation.
-- `apps/worker` — BullMQ worker that consumes queued ingest jobs (primes for async processing/retries).
-- `apps/web` — Next.js App Router dashboard (React + Tailwind + React Query + TanStack Table).
-- `packages/db` — Prisma schema/client for Postgres; single source of truth for entities.
-- `packages/shared` — Zod schemas/types, plus goldens/prompts referenced by evals.
-- `packages/telemetry` — OpenTelemetry SDK helper for future tracing/metrics export.
-- `packages/ui` — placeholder for shared UI components (not yet populated).
-- `infra` — docker-compose to run Postgres, Redis, API, worker, and web together.
-- `scripts/seed.ts` — deterministic demo data seeding (conversations, messages, runs, evals, incidents).
+## Monorepo modules
+- `apps/api`: ingest endpoints, agent routes, eval routes, ops metrics routes
+- `apps/worker`: async ingestion processor via Redis queue
+- `apps/web`: Next.js dashboard for operators
+- `packages/db`: Prisma schema and data access contract
+- `packages/shared`: shared types, prompts, and eval goldens
 
-## Key terminology (data model)
-- **Tenant**: optional owner namespace for conversations.
-- **Conversation**: thread of messages; created on ingest or agent response.
-- **Message**: individual turn (`user` / `assistant` / `system`).
-- **IngestEvent**: normalized record of incoming provider events (SMS/chat/voice) with idempotent `providerMessageId`.
-- **AgentRun**: a single agent execution over a conversation; contains status, latency, and tool calls.
-- **ToolCall**: an invoked tool (e.g., `check_availability`, `book_appointment`, `create_ticket`, `handoff_to_human`) with request/response and latency.
-- **EvalSuite / EvalRun / EvalCase**: collection of golden cases; each run records pass/fail rate.
-- **GuardrailViolation**: stored violation of a policy (e.g., PII).
-- **MetricPoint**: generic metric record; currently derived on the fly from runs.
-- **Incident**: simulated operational incident (type + status).
+## Runtime flow
+1. Provider sends inbound payload to `/v1/ingest/{sms|chat|voice}`.
+2. API normalizes payload into a common `ConversationEvent`.
+3. API applies idempotency and tenant rate-limit checks.
+4. Accepted events are queued in Redis (BullMQ).
+5. Worker consumes queued events and persists them; retries on transient failures; pushes exhausted failures to DLQ.
+6. For direct assistant replies (`/v1/agent/respond`), API stores user message, asks planner to choose a tool, executes tool, stores assistant reply + run metadata.
+7. Dashboard pages query runs/messages/metrics/evals/incidents from API.
 
-## How it works (runtime flow)
-1) **Ingestion API** (`apps/api/src/api/routes.ts`):
-   - Endpoints: `/v1/ingest/{sms,chat,voice}` normalize payloads and enqueue jobs.
-   - Uses Redis token-bucket rate limiting and idempotency (stores providerMessageId) to prevent duplicates.
-2) **Queue & Worker**:
-   - Jobs land in a BullMQ queue (`createIngestQueue`).
-   - `apps/worker` consumes jobs (hook points for persistence/processing; current scaffold is minimal).
-3) **Agent Respond** (`/v1/agent/respond`):
-   - Creates/upsserts a conversation, writes the user message, chooses a tool (stubbed selector), runs the tool, writes assistant reply, records `AgentRun` + `ToolCall`, and returns the run plus messages.
-4) **Evals** (`/v1/evals/run`):
-   - Triggers `runEvalSuite` over goldens in `packages/shared/goldens`; responses stored in memory for now and exposed via `/v1/evals/runs`.
-5) **Ops/Observability** (`/v1/metrics/overview`, `/v1/incidents`):
-   - Computes p50/p95 latency, tool failure rate, and handoff rate from stored runs.
-   - Simulated incidents can be posted to `/v1/incidents/simulate`; history kept in-memory.
-6) **Dashboard** (`apps/web`):
-   - React Query fetches API endpoints for overview, conversations, runs, evals, metrics, and incidents.
-   - TanStack Table renders conversation and agent-run lists.
-   - Responsive shell: sidebar on desktop, chip nav on mobile; tables are horizontally scrollable on small screens.
+## OpenAI assistant integration
+The assistant routing path in `apps/api/src/core/agentService.ts` now uses `apps/api/src/core/assistantPlanner.ts`.
 
-## Why it’s useful (benefits)
-- **Unified surface**: ingest, orchestrate, evaluate, and observe agent behavior in one stack.
-- **Deterministic demos**: seed script produces consistent conversations/runs/evals/incidents for live demos.
-- **Operational posture**: built-in rate limiting, idempotency, queueing, and basic incident simulation.
-- **Extensibility**: Prisma schema + shared Zod types centralize contracts; queue/worker pattern is ready for real tool logic; web dashboard already wired to API.
-- **Deployable locally**: docker-compose spins up DB/Redis/API/worker/web with env defaults.
+Planner behavior:
+- If `OPENAI_API_KEY` exists, planner calls OpenAI Chat Completions with a strict JSON output contract.
+- JSON output includes:
+  - `tool`
+  - `tool_input`
+  - `assistant_reply`
+  - `reasoning`
+- API executes selected tool and stores planner metadata in `ToolCall.request`.
+- If OpenAI fails, times out, or returns invalid JSON, planner falls back to deterministic keyword routing.
 
-## Current limitations / improvement ideas
-- **UI kit completion**: install shadcn dependencies (`class-variance-authority`, `tailwind-merge`, `@radix-ui/react-slot`, `lucide-react`) and refactor primitives to use them.
-- **Testing**: replace smoke Vitest tests with real API/worker integration tests (ingest idempotency, rate limits, agent respond, metrics).
-- **Persistence breadth**: incidents, eval runs, and metrics are in-memory; move them to Postgres and expose pagination/filtering.
-- **Auth & multitenancy**: add API auth (keys/JWT) and tenant scoping across all queries.
-- **Error handling & validation**: strengthen schema validation on ingest/agent paths; return typed error responses.
-- **Telemetry**: wire `packages/telemetry` to export traces/metrics to OTLP (e.g., collector) and add request/queue spans.
-- **Migrations & CI**: add Prisma migrations, CI for lint/test/build, and seeded test DB for reproducible checks.
-- **UX polish**: add sorting/filtering to TanStack tables, skeleton loaders, and richer empty/error states.
+Why this hybrid model was chosen:
+- OpenAI improves routing quality and response quality for ambiguous user requests.
+- Deterministic fallback protects reliability during model/network incidents.
+- Structured JSON output keeps tool execution safe and auditable.
+
+## Key design choices and rationale
+- Idempotency before queue push:
+  - Prevents duplicate provider retries from creating duplicate events.
+  - Keeps downstream worker load stable.
+- Rate-limit rollback of idempotency claim:
+  - If a request is rejected for rate limits, claim is removed so client can retry later.
+- Queue + worker split:
+  - Ingestion remains fast even when persistence is slow.
+  - Retries and DLQ provide operability.
+- Bounded chat context (last 12 messages) for OpenAI:
+  - Prevents unbounded latency/cost growth on long conversations.
+- Tool execution recorded with request/response:
+  - Enables debugging, audits, and metrics calculations.
+
+## What the dashboard shows
+- Overview: latency + failure/handoff rates
+- Conversations: list and details (messages + runs)
+- Agent runs: tool-level execution history
+- Evals: golden-suite replay status
+- Metrics: aggregate reliability indicators
+- Incidents: simulation history
+
+## Common failure modes and handling
+- OpenAI unavailable:
+  - Service falls back to rule routing.
+  - `ToolCall.request` records fallback reason.
+- Redis unavailable:
+  - Ingest/worker operations fail; API returns errors; compose health checks reveal status.
+- Postgres unavailable:
+  - Agent run persistence and worker inserts fail; worker retries then DLQ.
+- Invalid provider payloads:
+  - Zod validation returns HTTP 400 with field-level issue info.
+- Duplicate provider message IDs:
+  - Returned as `status: duplicate` without reprocessing.
+
+## Where to read next
+- Architecture detail: `docs/architecture.md`
+- Operational procedures: `docs/runbook.md`
+- High-level product view: `docs/overview.md`

@@ -7,6 +7,7 @@ module.exports = {
   parserOptions: {
     ecmaVersion: 2021,
     sourceType: 'module',
+    tsconfigRootDir: __dirname,
     project: ['./tsconfig.base.json'],
   },
   settings: {
@@ -17,6 +18,9 @@ module.exports = {
   overrides: [
     {
       files: ['apps/web/**/*.{ts,tsx}'],
+      parserOptions: {
+        project: null,
+      },
       extends: ['next', 'next/core-web-vitals'],
     },
     {

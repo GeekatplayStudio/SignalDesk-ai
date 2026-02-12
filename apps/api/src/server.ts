@@ -2,6 +2,7 @@ import { createApp } from './api/app';
 import { IngestionService } from './core/ingestionService';
 import { env } from './infra/env';
 import { AgentService } from './core/agentService';
+import { createAssistantPlanner } from './core/assistantPlanner';
 import { PrismaConversationEventRepository } from './infra/prismaConversationEventRepository';
 import { RedisIdempotencyStore } from './infra/redisIdempotencyStore';
 import { createRedisClient } from './infra/redisClient';
@@ -25,7 +26,14 @@ async function main(): Promise<void> {
     idempotencyTtlSeconds: env.idempotencyTtlSeconds,
   });
 
-  const agentService = new AgentService();
+  const assistantPlanner = createAssistantPlanner({
+    openAiApiKey: env.openAiApiKey,
+    openAiModel: env.openAiModel,
+    openAiBaseUrl: env.openAiBaseUrl,
+    openAiTimeoutMs: env.openAiTimeoutMs,
+    appName: env.appName,
+  });
+  const agentService = new AgentService({ assistantPlanner });
 
   const app = createApp(
     ingestionService,
@@ -49,7 +57,7 @@ async function main(): Promise<void> {
   );
   const server = app.listen(env.port, () => {
     // eslint-disable-next-line no-console
-    console.log(`MCC-IG API listening on port ${env.port}`);
+    console.log(`${env.appName} API listening on port ${env.port}`);
   });
 
   const shutdown = async () => {

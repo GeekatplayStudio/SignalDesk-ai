@@ -1,6 +1,6 @@
 import express from 'express';
 import { IngestionService } from '../core/ingestionService';
-import { AgentService } from '../core/agentService';
+import type { AgentService } from '../core/agentService';
 import { createAgentRouter } from './agentRoutes';
 import { createEvalRouter } from './evalRoutes';
 import { createOpsRouter } from './opsRoutes';

@@ -22,7 +22,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <aside className="hidden md:block w-64 border-r border-slate-900 bg-slate-950/70">
               <div className="px-4 py-5">
                 <Link href="/" className="text-xl font-semibold text-white">
-                  AgentOps Studio
+                  Geekatplay Studio
                 </Link>
               </div>
               <Sidebar items={navItems} />
@@ -32,7 +32,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <div className="md:hidden sticky top-0 z-20 border-b border-slate-900 bg-slate-950/95 backdrop-blur px-4 py-3">
                 <div className="flex items-center justify-between">
                   <Link href="/" className="text-lg font-semibold text-white">
-                    AgentOps Studio
+                    Geekatplay Studio
                   </Link>
                 </div>
                 <div className="mt-3 flex gap-2 overflow-x-auto pb-1">

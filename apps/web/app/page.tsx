@@ -31,7 +31,7 @@ export default function HomePage() {
     <div className="space-y-6">
       <header className="flex items-center justify-between">
         <div>
-          <p className="text-sm uppercase tracking-wide text-slate-400">AgentOps Studio</p>
+          <p className="text-sm uppercase tracking-wide text-slate-400">Geekatplay Studio</p>
           <h1 className="text-3xl font-semibold">Unified Ops Dashboard</h1>
         </div>
       </header>

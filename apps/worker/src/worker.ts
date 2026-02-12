@@ -54,12 +54,14 @@ export class ConversationWorker {
         lastError = error;
 
         if (attempt < this.config.maxRetries) {
+          // Exponential backoff smooths transient outages and protects downstream systems.
           const backoff = this.config.baseBackoffMs * 2 ** (attempt - 1);
           await sleep(backoff);
         }
       }
     }
 
+    // Dead-letter queue keeps failed events inspectable/replayable instead of dropping them.
     await this.queueClient.pushDlq({
       failed_at: new Date().toISOString(),
       retries: this.config.maxRetries,

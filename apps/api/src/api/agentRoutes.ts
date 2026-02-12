@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { AgentService, agentRespondSchema } from '../core/agentService';
+import type { AgentService } from '../core/agentService';
+import { agentRespondSchema } from '../core/agentSchemas';
 
 export function createAgentRouter(agentService: AgentService): Router {
   const router = Router();

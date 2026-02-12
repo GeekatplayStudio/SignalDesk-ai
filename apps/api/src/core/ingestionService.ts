@@ -16,6 +16,7 @@ export class IngestionService {
   async ingest(event: ConversationEvent): Promise<IngestResult> {
     const idempotencyKey = this.buildIdempotencyKey(event.provider_message_id);
 
+    // Fast duplicate check avoids queue churn when providers retry deliveries.
     if (await this.idempotencyStore.exists(idempotencyKey)) {
       return { status: 'duplicate' };
     }
@@ -27,6 +28,8 @@ export class IngestionService {
 
     const withinLimit = await this.rateLimiter.consume(event.tenant_id);
     if (!withinLimit) {
+      // We only keep the idempotency claim for accepted events, so rate-limited
+      // callers can retry later without being permanently marked as duplicates.
       await this.idempotencyStore.remove(idempotencyKey);
       return { status: 'rate_limited' };
     }

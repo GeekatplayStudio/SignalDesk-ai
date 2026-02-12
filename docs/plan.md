@@ -1,4 +1,4 @@
-# AgentOps Studio Delivery Plan
+# Geekatplay Studio Delivery Plan
 _Updated: 2026-02-09_
 
 ## Checklist (source of truth)

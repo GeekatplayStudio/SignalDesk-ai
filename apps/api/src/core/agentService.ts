@@ -1,50 +1,76 @@
-import { Prisma, prisma } from '@agentops/db';
-import { randomUUID } from 'crypto';
-import { z } from 'zod';
-import { chooseTool, runTool, ToolCallResult, ToolName } from './tooling';
+import { prisma } from '@agentops/db';
+import { chooseTool, runTool, ToolCallResult } from './tooling';
+import { AssistantPlanner, AssistantPlan, ConversationTurn } from './assistantPlanner';
+import { AgentRespondInput } from './agentSchemas';
 
-export const agentRespondSchema = z.object({
-  conversation_id: z.string().uuid().optional(),
-  tenant_id: z.string().uuid().optional(),
-  message: z.string().min(1),
-});
+export interface AgentServiceDependencies {
+  db?: typeof prisma;
+  assistantPlanner?: AssistantPlanner;
+  toolRunner?: typeof runTool;
+  now?: () => number;
+}
 
 export class AgentService {
+  private readonly db: typeof prisma;
+  private readonly assistantPlanner: AssistantPlanner;
+  private readonly toolRunner: typeof runTool;
+  private readonly now: () => number;
+
+  constructor(deps: AgentServiceDependencies = {}) {
+    this.db = deps.db ?? prisma;
+    this.assistantPlanner = deps.assistantPlanner ?? {
+      plan: async (input) => {
+        const tool = chooseTool(input.latestUserMessage);
+        return {
+          tool,
+          toolInput: { raw_message: input.latestUserMessage },
+          assistantReply: `I can help with that. I'm using ${tool.replace(/_/g, ' ')} right now.`,
+          reasoning: 'default_service_fallback',
+          source: 'rules',
+        };
+      },
+    };
+    this.toolRunner = deps.toolRunner ?? runTool;
+    this.now = deps.now ?? (() => Date.now());
+  }
+
   async upsertConversation(input: { conversationId?: string; tenantId?: string; title?: string }) {
     if (input.conversationId) {
-      const existing = await prisma.conversation.findUnique({ where: { id: input.conversationId } });
+      const existing = await this.db.conversation.findUnique({ where: { id: input.conversationId } });
       if (existing) return existing;
     }
-    return prisma.conversation.create({ data: { id: input.conversationId, tenantId: input.tenantId, title: input.title } });
+    return this.db.conversation.create({
+      data: { id: input.conversationId, tenantId: input.tenantId, title: input.title },
+    });
   }
 
   async getConversations() {
-    return prisma.conversation.findMany({ orderBy: { createdAt: 'desc' } });
+    return this.db.conversation.findMany({ orderBy: { createdAt: 'desc' } });
   }
 
   async getConversation(id: string) {
-    return prisma.conversation.findUnique({ where: { id } });
+    return this.db.conversation.findUnique({ where: { id } });
   }
 
   async getMessages(conversationId: string) {
-    return prisma.message.findMany({ where: { conversationId }, orderBy: { createdAt: 'asc' } });
+    return this.db.message.findMany({ where: { conversationId }, orderBy: { createdAt: 'asc' } });
   }
 
   async getAgentRuns(conversationId?: string) {
-    return prisma.agentRun.findMany({
+    return this.db.agentRun.findMany({
       where: conversationId ? { conversationId } : undefined,
       orderBy: { createdAt: 'desc' },
       include: { toolCalls: true },
     });
   }
 
-  async respond(payload: z.infer<typeof agentRespondSchema>) {
+  async respond(payload: AgentRespondInput) {
     const conversation = await this.upsertConversation({
       conversationId: payload.conversation_id,
       tenantId: payload.tenant_id,
     });
 
-    const userMessage = await prisma.message.create({
+    const userMessage = await this.db.message.create({
       data: {
         conversationId: conversation.id,
         role: 'user',
@@ -52,45 +78,81 @@ export class AgentService {
       },
     });
 
-    const tool: ToolName = chooseTool(payload.message);
-    const started = Date.now();
-    const toolResult = runTool(tool, {});
+    const conversationHistory = await this.fetchConversationHistory(conversation.id);
+    const plan = await this.assistantPlanner.plan({
+      latestUserMessage: payload.message,
+      conversationHistory,
+    });
 
-    const assistantMessage = await prisma.message.create({
+    const started = this.now();
+    const toolResult = this.toolRunner(plan.tool, plan.toolInput);
+
+    const assistantMessage = await this.db.message.create({
       data: {
         conversationId: conversation.id,
         role: 'assistant',
-        content: renderAssistantReply(toolResult),
+        content: renderAssistantReply(toolResult, plan),
       },
     });
 
-    const run = await prisma.agentRun.create({
+    const run = await this.db.agentRun.create({
       data: {
         conversationId: conversation.id,
         status: toolResult.status === 'succeeded' ? 'succeeded' : 'failed',
-        latencyMs: Date.now() - started,
+        latencyMs: this.now() - started,
         toolCalls: {
           create: {
-        tool: toolResult.tool,
-        status: toolResult.status,
-        request: {},
-        response: toolResult.output as any,
-        latencyMs: toolResult.latencyMs,
-      },
-    },
+            tool: toolResult.tool,
+            status: toolResult.status,
+            request: toolRequest(plan),
+            response: toolResult.output,
+            latencyMs: toolResult.latencyMs,
+          },
+        },
       },
       include: { toolCalls: true },
     });
 
     return { run, messages: [userMessage, assistantMessage] };
   }
+
+  private async fetchConversationHistory(conversationId: string): Promise<ConversationTurn[]> {
+    // Keep context bounded so latency/cost remain stable even on long threads.
+    const recent = await this.db.message.findMany({
+      where: { conversationId },
+      orderBy: { createdAt: 'desc' },
+      take: 12,
+    });
+
+    return recent
+      .reverse()
+      .map((message: { role: string; content: string }) => ({
+        role: normalizeRole(message.role),
+        content: message.content,
+      }));
+  }
 }
 
-function renderAssistantReply(toolResult: ToolCallResult): string {
+function renderAssistantReply(toolResult: ToolCallResult, plan: AssistantPlan): string {
+  const toolSummary = summarizeToolOutcome(toolResult);
+  const plannedReply = plan.assistantReply.trim();
+
   if (toolResult.status === 'failed') {
     return 'I could not complete the requested action; escalating to a human.';
   }
 
+  if (plannedReply.length === 0) {
+    return toolSummary;
+  }
+
+  if (normalizeText(plannedReply) === normalizeText(toolSummary)) {
+    return plannedReply;
+  }
+
+  return `${plannedReply}\n\n${toolSummary}`;
+}
+
+function summarizeToolOutcome(toolResult: ToolCallResult): string {
   switch (toolResult.tool) {
     case 'check_availability':
       return `I found availability: ${(toolResult.output.slots as string[]).join(', ')}`;
@@ -103,4 +165,24 @@ function renderAssistantReply(toolResult: ToolCallResult): string {
     default:
       return 'Completed.';
   }
+}
+
+function toolRequest(plan: AssistantPlan): Record<string, unknown> {
+  return {
+    planner: plan.source,
+    model: plan.model ?? null,
+    reasoning: plan.reasoning,
+    input: plan.toolInput,
+  };
+}
+
+function normalizeRole(role: string): ConversationTurn['role'] {
+  if (role === 'assistant' || role === 'system') {
+    return role;
+  }
+  return 'user';
+}
+
+function normalizeText(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ');
 }

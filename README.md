@@ -1,42 +1,57 @@
-# AgentOps Studio
+# Geekatplay Studio
 
-Monorepo combining ingestion gateway, agent orchestration, evaluations/guardrails, and observability/incident tooling into a single TypeScript/Node/Next.js stack.
+Geekatplay Studio is a TypeScript monorepo for AI chat operations: multi-channel ingestion, assistant orchestration, eval/guardrail checks, and ops visibility in one stack.
 
-Imported source (for reference while refactoring) lives under `legacy/`:
-- `legacy/ingest-gateway` (MCC-IG Express + Redis + Postgres)
-- `legacy/agent-orchestrator` (FastAPI + React console)
-- `legacy/guardrails` (Sentinel eval/guardrails + Next dashboard)
-- `legacy/ops-guard` (Ops observability Express backend + Next UI)
+## Repository layout
+- `apps/api`: Express API (ingest, agent respond, evals, metrics, incidents)
+- `apps/worker`: queue consumer for ingestion events
+- `apps/web`: Next.js dashboard
+- `packages/db`: Prisma schema/client
+- `packages/shared`: shared schemas, prompts, and golden eval cases
+- `infra`: Docker Compose + env template
+- `docs`: architecture, explainer, runbook
+- `legacy`: imported historical code for reference only
 
-## Workspace
-- Package manager: pnpm workspaces
-- Apps: `apps/api`, `apps/web`, `apps/worker`
-- Packages: `packages/shared`, `packages/db`, `packages/telemetry`, `packages/ui`
-- Infra: `infra` (docker-compose, env examples)
-- Docs: `docs` (overview in `docs/overview.md`, plan in `docs/plan.md`)
+## OpenAI assistant integration
+- `POST /v1/agent/respond` now routes through an OpenAI planner when `OPENAI_API_KEY` is configured.
+- The planner returns structured JSON (`tool`, `tool_input`, `assistant_reply`, `reasoning`), then the API executes the selected tool and persists run metadata.
+- If OpenAI is unavailable or returns malformed output, the service falls back to deterministic keyword routing so chat handling remains available.
 
-## Getting Started (demo-ready)
-```
-# install deps (reuse existing pnpm store path if present)
-pnpm install --store-dir "$HOME/Library/pnpm/store/v3"
-
-# generate Prisma client (needs writable cache path in some sandboxes)
-cd packages/db
-PRISMA_ENGINE_CACHE_DIR="$(pwd)/.prisma-cache" pnpm prisma generate
-cd ../..
-
-# push schema and seed demo data (Postgres + Redis must be running)
+## Quick start
+```bash
+pnpm install
+cp infra/.env.example .env
 pnpm db:push
 pnpm seed
-
-# run all apps (api, worker, web)
 pnpm dev
 ```
 
-### Docker Compose (prod-like demo)
-```
+## Docker (prod-like local run)
+```bash
 cd infra
-cp .env.example ../.env   # adjust if needed
 docker compose up --build
 ```
-`NEXT_PUBLIC_API_BASE_URL` is pre-set for compose; keep ports 3000 (web) and 3001 (api) free.
+
+## Quality checks (dry run)
+```bash
+pnpm lint
+pnpm test
+pnpm build
+```
+
+## Required environment variables
+- `DATABASE_URL`
+- `REDIS_URL`
+- `NEXT_PUBLIC_API_BASE_URL`
+
+## OpenAI environment variables (optional but recommended)
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL` (default: `gpt-4.1-mini`)
+- `OPENAI_BASE_URL` (default: `https://api.openai.com/v1`)
+- `OPENAI_TIMEOUT_MS` (default: `8000`)
+
+## Main docs
+- `docs/app-explainer.md`
+- `docs/architecture.md`
+- `docs/runbook.md`
+- `docs/risks.md`

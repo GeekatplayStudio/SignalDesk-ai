@@ -30,7 +30,7 @@ async function main(): Promise<void> {
   process.on('SIGTERM', shutdown);
 
   // eslint-disable-next-line no-console
-  console.log('MCC-IG worker started');
+  console.log(`${env.appName} worker started`);
   await worker.start();
 }
 

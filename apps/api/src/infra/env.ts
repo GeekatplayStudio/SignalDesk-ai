@@ -24,6 +24,15 @@ function optionalNumber(name: string, fallback: number): number {
   return parsed;
 }
 
+function optionalString(name: string): string | undefined {
+  const value = process.env[name];
+  if (!value) {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 function optionalBoolean(name: string, fallback: boolean): boolean {
   const value = process.env[name];
   if (!value) {
@@ -44,9 +53,14 @@ function optionalBoolean(name: string, fallback: boolean): boolean {
 
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
+  appName: process.env.APP_NAME ?? 'Geekatplay Studio',
   port: optionalNumber('PORT', 3005),
   databaseUrl: required('DATABASE_URL'),
   redisUrl: required('REDIS_URL'),
+  openAiApiKey: optionalString('OPENAI_API_KEY'),
+  openAiModel: process.env.OPENAI_MODEL ?? 'gpt-4.1-mini',
+  openAiBaseUrl: process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1',
+  openAiTimeoutMs: optionalNumber('OPENAI_TIMEOUT_MS', 8000),
   redisQueueKey: process.env.REDIS_QUEUE_KEY ?? 'queue:conversations',
   redisDlqKey: process.env.REDIS_DLQ_KEY ?? 'dlq:conversations',
   idempotencyTtlSeconds: optionalNumber('IDEMPOTENCY_TTL_SECONDS', 60 * 60 * 24),

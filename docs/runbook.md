@@ -1,32 +1,59 @@
-# Runbook (Draft)
+# Geekatplay Studio Runbook
 
-## Startup
-1) Ensure env vars in `.env` (or `infra/.env.example` copied).
-2) Start services: `cd infra && docker compose up --build`.
-3) Generate Prisma client (local): `cd packages/db && PRISMA_ENGINE_CACHE_DIR="$(pwd)/.prisma-cache" pnpm db:generate`.
-4) Push schema (dev): `pnpm db:push`; seed: `pnpm seed`.
-5) Health checks: API `/v1/readyz`, Web `/` load, Redis ping, Postgres `pg_isready`.
+## Startup checklist
+1. Ensure `.env` exists (`cp infra/.env.example .env`).
+2. Start infrastructure: `cd infra && docker compose up --build`.
+3. Apply DB schema: `pnpm db:push`.
+4. Seed deterministic demo data: `pnpm seed`.
+5. Validate health:
+   - API: `GET /v1/healthz` and `GET /v1/readyz`
+   - Web: `GET /`
+   - Redis: `redis-cli ping`
+   - Postgres: `pg_isready`
 
-## Health/Diagnostics
-- API: `/v1/healthz`, `/v1/readyz`.
-- Worker: monitor BullMQ events/logs; check Redis connectivity.
-- DB: `pg_isready -U agentops -d agentops`.
-- Redis: `redis-cli ping`.
+## Required env vars
+- `DATABASE_URL`
+- `REDIS_URL`
+- `NEXT_PUBLIC_API_BASE_URL`
 
-## Incidents
-- Simulate via `POST /v1/incidents/simulate` (types: `tool_latency_spike`, `redis_down`, `traffic_spike`, etc.).
-- DLQ visibility (to add UI): inspect Redis DLQ key.
-- Kill switches / feature flags (planned): disable specific tools or guardrails if causing harm.
+## Optional OpenAI vars
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
+- `OPENAI_BASE_URL`
+- `OPENAI_TIMEOUT_MS`
 
-## Backups & Data
-- Postgres volume `pgdata` (compose) holds state; snapshot before risky changes.
-- Redis is ephemeral in dev; in prod use managed Redis with persistence.
+If OpenAI vars are missing or invalid, assistant routing still works via fallback rules.
 
-## Deploy
-- Build images via app Dockerfiles; compose uses healthchecks for ordering.
-- Required env: `DATABASE_URL`, `REDIS_URL`, `PORT`, `NEXT_PUBLIC_API_BASE_URL`.
+## Dry-run quality commands
+- `pnpm lint`
+- `pnpm test`
+- `pnpm build`
 
-## Common Issues
-- **Prisma generate fails**: set `PRISMA_ENGINE_CACHE_DIR` to writable path.
-- **Dashboard blank**: check `NEXT_PUBLIC_API_BASE_URL` points to API, ensure CORS if custom host.
-- **Queue stuck**: verify Redis connectivity, check BullMQ worker logs, ensure API enqueue keys match worker queue name.
+Run these before deploy to catch regressions in API/worker/web behavior.
+
+## Operational diagnostics
+- API
+  - health: `/v1/healthz`
+  - readiness: `/v1/readyz`
+  - metrics summary: `/v1/metrics/overview`
+- Worker
+  - inspect logs for failed jobs
+  - verify Redis queue key and DLQ key
+- Data
+  - verify new `Message`, `AgentRun`, and `ToolCall` records for live requests
+
+## Incident handling quick guide
+1. Confirm dependency health (Redis/Postgres/OpenAI reachability).
+2. Check latest failed tool calls in `AgentRun` records.
+3. Inspect DLQ entries for replay candidates.
+4. If OpenAI degraded, keep service up using fallback mode while investigating key/model/network issues.
+
+## Known problems to watch
+- Duplicate provider message IDs from upstream systems:
+  - Expected; service returns `duplicate`.
+- Queue backlog growth:
+  - Usually indicates worker/downstream DB pressure.
+- High handoff rate:
+  - Can indicate weak tool coverage or over-conservative prompt routing.
+- Invalid/malformed model JSON:
+  - Planner auto-fallback protects uptime, but quality can drop.

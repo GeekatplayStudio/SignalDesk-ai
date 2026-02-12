@@ -85,7 +85,8 @@ export class InMemoryQueueClient implements QueueClient {
     this.queue.push(envelope);
   }
 
-  async pop(_blockMs: number): Promise<QueueEventEnvelope | null> {
+  async pop(blockMs: number): Promise<QueueEventEnvelope | null> {
+    void blockMs;
     const item = this.queue.shift();
     return item ?? null;
   }

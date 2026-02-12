@@ -18,6 +18,7 @@ export interface ToolCallResult {
 
 export function runTool(tool: ToolName, input: Record<string, unknown>): ToolCallResult {
   const start = Date.now();
+  void input;
 
   const handlers: Record<ToolName, () => Record<string, unknown>> = {
     check_availability: () => ({ available: true, slots: ['2026-02-10T10:00Z', '2026-02-10T14:00Z'] }),
