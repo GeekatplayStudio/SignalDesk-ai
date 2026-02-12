@@ -3,14 +3,17 @@
 ## Startup checklist
 1. Ensure `.env` exists (`cp infra/.env.example .env`).
 2. Start infrastructure: `cd infra && docker compose up --build`.
-3. Apply DB schema: `pnpm db:push`.
-4. Seed deterministic demo data: `pnpm seed`.
-5. Validate health:
+3. Seed deterministic demo data: `pnpm seed`.
+4. Validate health:
    - API: `GET /v1/healthz` and `GET /v1/readyz`
    - AI planner: `GET /health` on service `ai-planner`
    - Web: `GET /`
    - Redis: `redis-cli ping`
    - Postgres: `pg_isready`
+
+Notes:
+- In Docker Compose mode, API startup automatically runs `pnpm db:push`.
+- In non-Compose local runs, apply schema manually with `pnpm db:push`.
 
 ## Isolated compose mode (recommended when other local servers are running)
 Use:
@@ -60,6 +63,7 @@ Run from dashboard:
 - Use runtime toggle in the page header to enable/disable simulation mode
 - Pick a scenario and click `Run Scenario`
 - Monitor active scenario + step-level status + critical issue list
+- Confirm start feedback labels (`Starting…`, `Started`) and the success banner after run launch
 
 Run from CLI:
 - `pnpm simulate -- --base-url http://localhost:3401 --scenario booking_happy_path`
@@ -70,6 +74,12 @@ Simulation API endpoints:
 - `POST /v1/simulations/run`
 - `GET /v1/simulations/runs`
 - `GET /v1/simulations/runs/:id`
+
+Simulation dashboard fetch failures (`Failed to fetch`):
+1. Verify API is healthy on isolated port: `http://localhost:3401/v1/readyz`.
+2. Ensure web is running on `http://localhost:3400`.
+3. Rebuild stack so web picks up correct public API base URL:
+   - `pnpm compose:isolated:up`
 
 ## Operational diagnostics
 - API

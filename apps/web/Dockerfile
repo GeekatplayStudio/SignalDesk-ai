@@ -8,6 +8,8 @@ COPY packages ./packages
 COPY apps/web ./apps/web
 
 RUN pnpm install --filter @agentops/web... --ignore-scripts --no-frozen-lockfile
+ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:3001
+ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 RUN pnpm --filter @agentops/web build
 
 FROM node:20-slim

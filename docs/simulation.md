@@ -24,6 +24,7 @@ If disabled, `POST /v1/simulations/run` returns `403 simulation_mode_disabled`.
 - Use the top-right toggle to enable/disable simulation mode at runtime.
 - Choose a scenario from the catalog.
 - Click `Run Scenario`.
+- Confirm launch labels (`Starting…`, `Started`) and the success banner after run launch.
 - Watch:
   - active scenario state
   - per-turn tool/planner/latency
@@ -32,6 +33,20 @@ If disabled, `POST /v1/simulations/run` returns `403 simulation_mode_disabled`.
 Critical simulation outcomes are mirrored into `/incidents`.
 
 Note: UI toggle changes runtime mode in memory for the running API process. For persistent defaults across restarts, keep `ENABLE_SIMULATION_MODE` in `.env`.
+
+## Common dashboard issue: `Failed to fetch`
+If the simulations page shows:
+- `Toggle failed: Failed to fetch`
+- `Config error: Failed to fetch`
+- `Scenario load failed: Failed to fetch`
+
+then web cannot reach API from the browser.
+
+Check:
+1. API health: `http://localhost:3401/v1/readyz` (isolated mode)
+2. Web host: `http://localhost:3400`
+3. Rebuild containers so web bundle has correct `NEXT_PUBLIC_API_BASE_URL`:
+   - `pnpm compose:isolated:up`
 
 ## CLI usage
 ```bash

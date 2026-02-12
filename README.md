@@ -37,6 +37,7 @@ pnpm dev
 cd infra
 docker compose up --build
 ```
+`api` runs `pnpm db:push` on startup, so schema sync is automatic in Compose mode.
 
 ## Docker (isolated, non-interfering local run)
 This stack is designed to avoid clashing with other local services:
@@ -47,6 +48,7 @@ This stack is designed to avoid clashing with other local services:
 ```bash
 pnpm compose:isolated:up
 ```
+`api` runs `pnpm db:push` on startup, so schema sync is automatic in isolated mode too.
 
 Then open:
 - web: `http://localhost:3400`
@@ -87,6 +89,14 @@ pnpm build
 pnpm simulate -- --base-url http://localhost:3401 --scenario booking_happy_path
 ```
 The simulation runner reports active scenario, per-run status, and critical issues (tool mismatch, failed tool calls, fallback to rules, latency budget breaches).
+
+Simulation troubleshooting:
+- If `/simulations` shows `Failed to fetch`, the web bundle is likely pointing at the wrong API base URL.
+- For isolated mode, confirm `ISO_PUBLIC_API_BASE_URL=http://localhost:3401` in `infra/.env.isolated.example`.
+- Rebuild/restart web with:
+```bash
+pnpm compose:isolated:up
+```
 
 ## Required environment variables
 - `DATABASE_URL`

@@ -92,6 +92,11 @@ How a simulation run works:
 5. Run is finalized as `completed`, `completed_with_critical_issues`, or `failed`.
 6. Critical simulation outcomes are mirrored into incident history for ops visibility.
 
+UI operator feedback:
+- Simulations page exposes explicit launch labels (`Starting…`, `Running…`, `Started`) so fast runs do not appear stuck.
+- On successful launch, the page shows a success banner with scenario name and run id snippet.
+- Fetch/connectivity failures surface directly (`Toggle failed`, `Config error`, `Scenario load failed`) to speed troubleshooting.
+
 Why this approach was chosen:
 - Uses the real production path instead of mock-only behavior.
 - Gives immediate operational signal on regressions before customer impact.

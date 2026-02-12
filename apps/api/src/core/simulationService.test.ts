@@ -28,28 +28,29 @@ describe('simulation service', () => {
 
   it('runs a scenario and completes without critical issues when outputs match expectations', async () => {
     let runCounter = 0;
+    const respond = vi.fn(async (payload: { message: string; tenant_id?: string }) => {
+      runCounter += 1;
+      return {
+        run: {
+          id: `run-${runCounter}`,
+          latencyMs: 50,
+          toolCalls: [
+            {
+              tool: selectToolForMessage(payload.message),
+              status: 'succeeded',
+              request: { planner: 'python' },
+            },
+          ],
+        },
+        messages: [
+          { role: 'user', content: payload.message },
+          { role: 'assistant', content: 'Simulation reply' },
+        ],
+      };
+    });
     const service = new SimulationService(
       {
-        respond: vi.fn(async (payload) => {
-          runCounter += 1;
-          return {
-            run: {
-              id: `run-${runCounter}`,
-              latencyMs: 50,
-              toolCalls: [
-                {
-                  tool: selectToolForMessage(payload.message),
-                  status: 'succeeded',
-                  request: { planner: 'python' },
-                },
-              ],
-            },
-            messages: [
-              { role: 'user', content: payload.message },
-              { role: 'assistant', content: 'Simulation reply' },
-            ],
-          };
-        }),
+        respond,
       },
       {
         enabled: true,
@@ -64,6 +65,7 @@ describe('simulation service', () => {
     expect(completed.summary.totalTurns).toBe(2);
     expect(completed.summary.criticalIssueCount).toBe(0);
     expect(completed.summary.plannerMix.python).toBeGreaterThan(0);
+    expect(respond.mock.calls[0][0].tenant_id).toBeUndefined();
   });
 
   it('flags critical issues when tool selection is wrong and planner falls back to rules', async () => {

@@ -39,6 +39,7 @@ services:
     build:
       context: ..
       dockerfile: apps/api/Dockerfile
+    command: ["sh", "-lc", "pnpm --filter @agentops/db exec prisma db push --skip-generate && pnpm --filter @agentops/api start"]
     env_file:
       - ../.env
     environment:
@@ -80,6 +81,8 @@ services:
     build:
       context: ..
       dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${ISO_PUBLIC_API_BASE_URL:-http://localhost:3401}
     env_file:
       - ../.env
     depends_on:

@@ -213,7 +213,6 @@ export class SimulationService {
 
     try {
       const result = await this.agentService.respond({
-        tenant_id: 'simulation',
         conversation_id: conversationId,
         message: turn.userMessage,
       });

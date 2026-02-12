@@ -42,6 +42,7 @@ services:
     build:
       context: ..
       dockerfile: apps/api/Dockerfile
+    command: ["sh", "-lc", "pnpm --filter @agentops/db exec prisma db push --skip-generate && pnpm --filter @agentops/api start"]
     env_file:
       - ../.env
     environment:
@@ -82,6 +83,8 @@ services:
     build:
       context: ..
       dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:3001}
     env_file:
       - ../.env
     depends_on:
@@ -91,7 +94,7 @@ services:
       - "3000:3000"
     environment:
       PORT: 3000
-      NEXT_PUBLIC_API_BASE_URL: ${API_BASE_URL:-http://localhost:3001}
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:3001}
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 15s

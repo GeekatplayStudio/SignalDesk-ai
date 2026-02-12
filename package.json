@@ -22,9 +22,9 @@
     "format": "prettier --write .",
     "seed": "pnpm dlx tsx scripts/seed.ts",
     "simulate": "tsx scripts/run-simulation.ts",
-    "db:generate": "pnpm --filter @agentops/db prisma generate",
-    "db:push": "pnpm --filter @agentops/db prisma db push",
-    "db:migrate": "pnpm --filter @agentops/db prisma migrate deploy"
+    "db:generate": "pnpm --filter @agentops/db exec prisma generate",
+    "db:push": "pnpm --filter @agentops/db exec prisma db push",
+    "db:migrate": "pnpm --filter @agentops/db exec prisma migrate deploy"
   },
   "devDependencies": {
     "eslint": "8.57.1",

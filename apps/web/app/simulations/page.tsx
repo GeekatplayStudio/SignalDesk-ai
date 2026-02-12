@@ -1,8 +1,44 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
+function isLoopbackHost(hostname: string): boolean {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+}
+
+function inferApiBaseFromWindow(location: Location): string {
+  const host = location.hostname || 'localhost';
+  const protocol = location.protocol || 'http:';
+  const apiPort = location.port === '3400' ? '3401' : '3001';
+  return `${protocol}//${host}:${apiPort}`;
+}
+
+function resolveApiBase(): string {
+  const configured = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+
+  if (typeof window === 'undefined') {
+    return configured && configured.length > 0 ? configured : 'http://localhost:3001';
+  }
+
+  if (!configured) {
+    return inferApiBaseFromWindow(window.location);
+  }
+
+  try {
+    const parsed = new URL(configured);
+    if (isLoopbackHost(parsed.hostname) && !isLoopbackHost(window.location.hostname)) {
+      parsed.hostname = window.location.hostname;
+      parsed.protocol = window.location.protocol;
+      return parsed.origin;
+    }
+    return parsed.origin;
+  } catch {
+    return configured;
+  }
+}
+
+const API_BASE = resolveApiBase();
 
 type SimulationScenario = {
   id: string;
@@ -60,6 +96,12 @@ type SimulationConfig = {
 
 export default function SimulationsPage() {
   const queryClient = useQueryClient();
+  const [pendingScenarioId, setPendingScenarioId] = useState<string | null>(null);
+  const [lastStartedRun, setLastStartedRun] = useState<{
+    scenarioId: string;
+    scenarioName: string;
+    runId: string | null;
+  } | null>(null);
 
   const config = useQuery({
     queryKey: ['simulations-config'],
@@ -103,13 +145,26 @@ export default function SimulationsPage() {
         throw new Error(typeof body.message === 'string' ? body.message : `Failed to start simulation (${res.status})`);
       }
 
-      return body;
+      const run = typeof body.run === 'object' && body.run !== null ? (body.run as Record<string, unknown>) : null;
+      return {
+        runId: typeof run?.id === 'string' ? run.id : null,
+      };
     },
-    onSuccess: async () => {
+    onMutate: (scenarioId) => {
+      setPendingScenarioId(scenarioId);
+      setLastStartedRun(null);
+    },
+    onSuccess: async (data, scenarioId) => {
+      const scenarioName =
+        scenarios.data?.scenarios.find((scenario) => scenario.id === scenarioId)?.name ?? scenarioId;
+      setLastStartedRun({ scenarioId, scenarioName, runId: data.runId });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['simulations-config'] }),
         queryClient.invalidateQueries({ queryKey: ['simulation-runs'] }),
       ]);
+    },
+    onSettled: () => {
+      setPendingScenarioId(null);
     },
   });
 
@@ -139,6 +194,7 @@ export default function SimulationsPage() {
 
   const modeEnabled = config.data?.enabled ?? scenarios.data?.enabled ?? false;
   const activeRunId = config.data?.activeRunId;
+  const activeScenarioId = config.data?.activeScenarioId;
   const activeScenarioName = config.data?.activeScenarioName;
 
   return (
@@ -178,9 +234,28 @@ export default function SimulationsPage() {
         </p>
       )}
 
+      {config.error && (
+        <p className="text-sm text-rose-400">
+          Config error: {(config.error as Error).message}
+        </p>
+      )}
+
+      {scenarios.error && (
+        <p className="text-sm text-rose-400">
+          Scenario load failed: {(scenarios.error as Error).message}
+        </p>
+      )}
+
       {activeRunId && (
         <div className="rounded-xl border border-cyan-900/60 bg-cyan-950/20 p-4 text-sm text-cyan-200">
           Active scenario: <span className="font-medium">{activeScenarioName ?? 'unknown'}</span> (run {activeRunId.slice(0, 8)})
+        </div>
+      )}
+
+      {lastStartedRun && (
+        <div className="rounded-xl border border-emerald-900/60 bg-emerald-950/20 p-4 text-sm text-emerald-200">
+          Simulation started for <span className="font-medium">{lastStartedRun.scenarioName}</span>
+          {lastStartedRun.runId ? ` (run ${lastStartedRun.runId.slice(0, 8)})` : ''}. See recent runs for live status.
         </div>
       )}
 
@@ -193,42 +268,60 @@ export default function SimulationsPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-medium">Scenario Catalog</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {scenarios.data?.scenarios.map((scenario) => (
-            <div key={scenario.id} className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-base font-semibold">{scenario.name}</h3>
-                  <p className="text-sm text-slate-300">{scenario.description}</p>
+          {scenarios.data?.scenarios.map((scenario) => {
+            const isPendingStart = startRun.isPending && pendingScenarioId === scenario.id;
+            const isActiveScenario = Boolean(activeRunId) && activeScenarioId === scenario.id;
+            const wasRecentlyStarted = lastStartedRun?.scenarioId === scenario.id && !activeRunId;
+
+            const buttonLabel = !modeEnabled
+              ? 'Enable Simulation First'
+              : isPendingStart
+                ? 'Starting…'
+                : isActiveScenario
+                  ? 'Running…'
+                  : activeRunId
+                    ? 'Scenario Running'
+                    : wasRecentlyStarted
+                      ? 'Started'
+                      : 'Run Scenario';
+
+            return (
+              <div key={scenario.id} className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-semibold">{scenario.name}</h3>
+                    <p className="text-sm text-slate-300">{scenario.description}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => startRun.mutate(scenario.id)}
+                    disabled={!modeEnabled || Boolean(activeRunId) || startRun.isPending}
+                    className="rounded border border-slate-700 px-3 py-1.5 text-xs text-slate-100 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800"
+                  >
+                    {buttonLabel}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => startRun.mutate(scenario.id)}
-                  disabled={!modeEnabled || Boolean(activeRunId) || startRun.isPending}
-                  className="rounded border border-slate-700 px-3 py-1.5 text-xs text-slate-100 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800"
-                >
-                  Run Scenario
-                </button>
-              </div>
 
-              <div className="rounded border border-slate-800 bg-slate-900/70 p-2">
-                <p className="text-xs uppercase tracking-wide text-slate-400">Live Example</p>
-                <p className="text-sm text-slate-200">{scenario.lifeExample}</p>
-              </div>
+                <div className="rounded border border-slate-800 bg-slate-900/70 p-2">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">Live Example</p>
+                  <p className="text-sm text-slate-200">{scenario.lifeExample}</p>
+                </div>
 
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">Critical Checks</p>
-                <ul className="space-y-1">
-                  {scenario.criticalChecks.map((check) => (
-                    <li key={check} className="text-sm text-slate-300">
-                      - {check}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">Critical Checks</p>
+                  <ul className="space-y-1">
+                    {scenario.criticalChecks.map((check) => (
+                      <li key={check} className="text-sm text-slate-300">
+                        - {check}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
 
-              <p className="text-xs text-slate-400">{scenario.turns.length} turns in this scenario</p>
-            </div>
-          ))}
+                <p className="text-xs text-slate-400">{scenario.turns.length} turns in this scenario</p>
+              </div>
+            );
+          })}
         </div>
         {scenarios.isLoading && <p className="text-sm text-slate-400">Loading scenarios…</p>}
       </section>
