@@ -57,6 +57,7 @@ Enable simulation mode:
 
 Run from dashboard:
 - Open `/simulations`
+- Use runtime toggle in the page header to enable/disable simulation mode
 - Pick a scenario and click `Run Scenario`
 - Monitor active scenario + step-level status + critical issue list
 

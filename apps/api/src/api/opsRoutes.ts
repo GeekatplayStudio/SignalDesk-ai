@@ -65,6 +65,15 @@ export function createOpsRouter(agentService: AgentService, options: OpsRouterOp
     return res.json(simulationService.getConfig());
   });
 
+  router.patch('/v1/simulations/config', (req, res) => {
+    if (typeof req.body?.enabled !== 'boolean') {
+      return res.status(400).json({ error: 'enabled boolean is required' });
+    }
+
+    const config = simulationService.setEnabled(req.body.enabled);
+    return res.json(config);
+  });
+
   router.get('/v1/simulations/scenarios', (_req, res) => {
     return res.json({
       enabled: simulationService.getConfig().enabled,

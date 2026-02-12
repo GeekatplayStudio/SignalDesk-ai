@@ -102,6 +102,7 @@ export class SimulationService {
   private readonly runs: SimulationRun[] = [];
   private readonly maxRuns: number;
   private readonly nowMs: () => number;
+  private enabled: boolean;
   private activeRunId: string | null = null;
   private activeScenarioId: string | null = null;
   private activeScenarioName: string | null = null;
@@ -112,15 +113,21 @@ export class SimulationService {
   ) {
     this.maxRuns = Math.max(1, options.maxRuns ?? 40);
     this.nowMs = options.nowMs ?? (() => Date.now());
+    this.enabled = options.enabled;
   }
 
   getConfig(): SimulationConfigView {
     return {
-      enabled: this.options.enabled,
+      enabled: this.enabled,
       activeRunId: this.activeRunId,
       activeScenarioId: this.activeScenarioId,
       activeScenarioName: this.activeScenarioName,
     };
+  }
+
+  setEnabled(enabled: boolean): SimulationConfigView {
+    this.enabled = enabled;
+    return this.getConfig();
   }
 
   listScenarios(): SimulationScenario[] {
@@ -137,7 +144,7 @@ export class SimulationService {
   }
 
   startRun(scenarioId: string): SimulationRun {
-    if (!this.options.enabled) {
+    if (!this.enabled) {
       throw new Error('simulation_mode_disabled');
     }
 

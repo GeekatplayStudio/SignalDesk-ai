@@ -13,6 +13,19 @@ describe('simulation service', () => {
     expect(() => service.startRun('booking_happy_path')).toThrow('simulation_mode_disabled');
   });
 
+  it('can be enabled at runtime and then start runs', () => {
+    const service = new SimulationService(
+      {
+        respond: vi.fn(),
+      },
+      { enabled: false },
+    );
+
+    const config = service.setEnabled(true);
+    expect(config.enabled).toBe(true);
+    expect(service.getConfig().enabled).toBe(true);
+  });
+
   it('runs a scenario and completes without critical issues when outputs match expectations', async () => {
     let runCounter = 0;
     const service = new SimulationService(

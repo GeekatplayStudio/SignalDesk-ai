@@ -113,6 +113,30 @@ export default function SimulationsPage() {
     },
   });
 
+  const toggleMode = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const res = await fetch(`${API_BASE}/v1/simulations/config`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      });
+
+      const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!res.ok) {
+        throw new Error(typeof body.error === 'string' ? body.error : `Failed to update simulation mode (${res.status})`);
+      }
+
+      return body;
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['simulations-config'] }),
+        queryClient.invalidateQueries({ queryKey: ['simulation-scenarios'] }),
+        queryClient.invalidateQueries({ queryKey: ['simulation-runs'] }),
+      ]);
+    },
+  });
+
   const modeEnabled = config.data?.enabled ?? scenarios.data?.enabled ?? false;
   const activeRunId = config.data?.activeRunId;
   const activeScenarioName = config.data?.activeScenarioName;
@@ -127,15 +151,31 @@ export default function SimulationsPage() {
             Run realistic chat scenarios and surface critical handling issues in one view.
           </p>
         </div>
-        <span className={`rounded px-2.5 py-1 text-xs ${modeEnabled ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
-          {modeEnabled ? 'simulation enabled' : 'simulation disabled'}
-        </span>
+        <div className="flex flex-col items-end gap-2">
+          <span className={`rounded px-2.5 py-1 text-xs ${modeEnabled ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+            {modeEnabled ? 'simulation enabled' : 'simulation disabled'}
+          </span>
+          <button
+            type="button"
+            onClick={() => toggleMode.mutate(!modeEnabled)}
+            disabled={toggleMode.isPending}
+            className="rounded border border-slate-700 px-3 py-1.5 text-xs text-slate-100 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-800"
+          >
+            {toggleMode.isPending ? 'Updating…' : modeEnabled ? 'Disable Simulation' : 'Enable Simulation'}
+          </button>
+        </div>
       </div>
 
       {!modeEnabled && (
         <div className="rounded-xl border border-rose-900/60 bg-rose-950/20 p-4 text-sm text-rose-200">
-          ENABLE_SIMULATION_MODE is off. Set `ENABLE_SIMULATION_MODE=true` and restart API/worker to run scenarios.
+          Simulation mode is currently off. Use the switch above to enable it for this running server.
         </div>
+      )}
+
+      {toggleMode.error && (
+        <p className="text-sm text-rose-400">
+          Toggle failed: {(toggleMode.error as Error).message}
+        </p>
       )}
 
       {activeRunId && (

@@ -75,6 +75,7 @@ pnpm build
   - `ENABLE_SIMULATION_MODE=true`
 - Dashboard tools:
   - `http://localhost:3400/simulations` (or `/simulations` on your configured web host)
+  - runtime toggle in page header to enable/disable simulation mode without restart
 - API endpoints:
   - `GET /v1/simulations/config`
   - `GET /v1/simulations/scenarios`

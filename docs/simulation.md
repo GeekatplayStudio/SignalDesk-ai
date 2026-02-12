@@ -21,6 +21,7 @@ If disabled, `POST /v1/simulations/run` returns `403 simulation_mode_disabled`.
 
 ## Dashboard usage
 - Open `/simulations`.
+- Use the top-right toggle to enable/disable simulation mode at runtime.
 - Choose a scenario from the catalog.
 - Click `Run Scenario`.
 - Watch:
@@ -29,6 +30,8 @@ If disabled, `POST /v1/simulations/run` returns `403 simulation_mode_disabled`.
   - run-level critical issues
 
 Critical simulation outcomes are mirrored into `/incidents`.
+
+Note: UI toggle changes runtime mode in memory for the running API process. For persistent defaults across restarts, keep `ENABLE_SIMULATION_MODE` in `.env`.
 
 ## CLI usage
 ```bash

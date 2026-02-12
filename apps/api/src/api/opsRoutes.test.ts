@@ -25,7 +25,7 @@ function createMockResponse(): MockResponse {
   };
 }
 
-function getRouteHandler(router: Router, method: 'post' | 'get', path: string) {
+function getRouteHandler(router: Router, method: 'post' | 'get' | 'patch', path: string) {
   const layer = (router as unknown as { stack: Array<{ route?: unknown }> }).stack.find((entry) => {
     const route = entry.route as { path?: string; methods?: Record<string, boolean> } | undefined;
     return route?.path === path && route.methods?.[method];
@@ -63,6 +63,34 @@ function buildService(): AgentService {
 }
 
 describe('ops routes', () => {
+  it('updates simulation mode config via PATCH', async () => {
+    const router = createOpsRouter(buildService(), { simulationEnabled: false });
+    const patchHandler = getRouteHandler(router, 'patch', '/v1/simulations/config');
+    const getHandler = getRouteHandler(router, 'get', '/v1/simulations/config');
+
+    const patchRes = createMockResponse();
+    await patchHandler({ body: { enabled: true } }, patchRes);
+
+    expect(patchRes.statusCode).toBe(200);
+    expect(patchRes.body).toMatchObject({ enabled: true });
+
+    const getRes = createMockResponse();
+    await getHandler({}, getRes);
+    expect(getRes.statusCode).toBe(200);
+    expect(getRes.body).toMatchObject({ enabled: true });
+  });
+
+  it('validates PATCH simulation config payload', async () => {
+    const router = createOpsRouter(buildService(), { simulationEnabled: false });
+    const handler = getRouteHandler(router, 'patch', '/v1/simulations/config');
+    const res = createMockResponse();
+
+    await handler({ body: {} }, res);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toMatchObject({ error: 'enabled boolean is required' });
+  });
+
   it('returns simulation scenarios', async () => {
     const router = createOpsRouter(buildService(), { simulationEnabled: false });
     const handler = getRouteHandler(router, 'get', '/v1/simulations/scenarios');
