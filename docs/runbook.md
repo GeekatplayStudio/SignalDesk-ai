@@ -64,6 +64,7 @@ Run from dashboard:
 - Pick a scenario and click `Run Scenario`
 - Monitor active scenario + step-level status + critical issue list
 - Confirm start feedback labels (`Starting…`, `Started`) and the success banner after run launch
+- Include critical-risk drills in regular checks: `security_intrusion_attempt`, `abusive_language_escalation`, `prompt_injection_overflow`
 
 Run from CLI:
 - `pnpm simulate -- --base-url http://localhost:3401 --scenario booking_happy_path`

@@ -103,6 +103,35 @@ describe('simulation service', () => {
     expect(completed.criticalIssues.some((issue) => issue.includes('planner_fallback_to_rules'))).toBe(true);
     expect(completed.criticalIssues.some((issue) => issue.includes('tool_mismatch'))).toBe(true);
   });
+
+  it('ships critical-risk scenarios for intrusion, abuse, and overflow attempts', () => {
+    const service = new SimulationService(
+      {
+        respond: vi.fn(),
+      },
+      { enabled: true },
+    );
+
+    const scenarios = service.listScenarios();
+    const ids = scenarios.map((scenario) => scenario.id);
+
+    expect(ids).toEqual(
+      expect.arrayContaining([
+        'security_intrusion_attempt',
+        'abusive_language_escalation',
+        'prompt_injection_overflow',
+      ]),
+    );
+
+    for (const scenarioId of ['security_intrusion_attempt', 'abusive_language_escalation', 'prompt_injection_overflow']) {
+      const scenario = scenarios.find((candidate) => candidate.id === scenarioId);
+      expect(scenario).toBeDefined();
+      expect(scenario?.turns.length).toBeGreaterThan(0);
+      for (const turn of scenario?.turns ?? []) {
+        expect(turn.expectedTool).toBe('handoff_to_human');
+      }
+    }
+  });
 });
 
 async function waitForCompletion(

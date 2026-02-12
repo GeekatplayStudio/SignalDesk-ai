@@ -152,10 +152,11 @@ export class AgentService {
     });
 
     const conversationHistory = await this.fetchConversationHistory(conversation.id);
-    const plan = await this.assistantPlanner.plan({
+    const planned = await this.assistantPlanner.plan({
       latestUserMessage: payload.message,
       conversationHistory,
     });
+    const plan = enforceCriticalHandoff(payload.message, planned);
 
     const started = this.now();
     const toolResult = this.toolRunner(plan.tool, plan.toolInput);
@@ -223,6 +224,25 @@ function renderAssistantReply(toolResult: ToolCallResult, plan: AssistantPlan): 
   }
 
   return `${plannedReply}\n\n${toolSummary}`;
+}
+
+function enforceCriticalHandoff(message: string, plan: AssistantPlan): AssistantPlan {
+  const routedTool = chooseTool(message);
+  if (routedTool !== 'handoff_to_human' || plan.tool === 'handoff_to_human') {
+    return plan;
+  }
+
+  return {
+    ...plan,
+    tool: 'handoff_to_human',
+    toolInput: {
+      ...plan.toolInput,
+      safety_override: 'critical_risk_handoff',
+      original_tool: plan.tool,
+    },
+    assistantReply: 'I am escalating this to a human teammate so you can get direct help.',
+    reasoning: `${plan.reasoning}|critical_risk_handoff`,
+  };
 }
 
 function summarizeToolOutcome(toolResult: ToolCallResult): string {

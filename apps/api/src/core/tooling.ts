@@ -50,6 +50,22 @@ export function runTool(tool: ToolName, input: Record<string, unknown>): ToolCal
 
 export function chooseTool(message: string): ToolName {
   const text = message.toLowerCase();
+  if (
+    text.includes('hack') ||
+    text.includes('exploit') ||
+    text.includes('sql injection') ||
+    text.includes('overflow') ||
+    text.includes('ddos') ||
+    text.includes('malware') ||
+    text.includes('backdoor') ||
+    text.includes('bypass') ||
+    text.includes('breach') ||
+    text.includes('bullshit') ||
+    text.includes('trash') ||
+    text.includes('threat')
+  ) {
+    return 'handoff_to_human';
+  }
   if (text.includes('schedule') || text.includes('book')) return 'book_appointment';
   if (text.includes('availability') || text.includes('open')) return 'check_availability';
   if (text.includes('ticket') || text.includes('issue')) return 'create_ticket';

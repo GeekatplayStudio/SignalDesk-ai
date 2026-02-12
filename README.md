@@ -89,6 +89,10 @@ pnpm build
 pnpm simulate -- --base-url http://localhost:3401 --scenario booking_happy_path
 ```
 The simulation runner reports active scenario, per-run status, and critical issues (tool mismatch, failed tool calls, fallback to rules, latency budget breaches).
+Critical-risk drill scenarios included:
+- `security_intrusion_attempt`
+- `abusive_language_escalation`
+- `prompt_injection_overflow`
 
 Simulation troubleshooting:
 - If `/simulations` shows `Failed to fetch`, the web bundle is likely pointing at the wrong API base URL.
