@@ -40,6 +40,32 @@ export default function HomePage() {
       }>('/v1/agent/runs'),
   });
 
+  const simulationConfig = useQuery({
+    queryKey: ['simulations-config-overview'],
+    queryFn: () =>
+      fetchJson<{
+        enabled: boolean;
+        activeRunId: string | null;
+        activeScenarioName: string | null;
+      }>('/v1/simulations/config'),
+    refetchInterval: 2000,
+  });
+
+  const simulationRuns = useQuery({
+    queryKey: ['simulation-runs-overview'],
+    queryFn: () =>
+      fetchJson<{
+        runs: Array<{
+          id: string;
+          scenarioName: string;
+          status: string;
+          summary: { criticalIssueCount: number };
+          startedAt: string;
+        }>;
+      }>('/v1/simulations/runs?limit=1'),
+    refetchInterval: 2000,
+  });
+
   const plannerMix = runs.data?.runs.reduce(
     (acc, run) => {
       const source = extractPlannerMeta(run.toolCalls[0]).source;
@@ -77,6 +103,38 @@ export default function HomePage() {
           <PlannerCard label="OpenAI" value={plannerMix?.openai ?? 0} loading={runs.isLoading} />
           <PlannerCard label="Rules" value={plannerMix?.rules ?? 0} loading={runs.isLoading} />
           <PlannerCard label="Unknown" value={plannerMix?.unknown ?? 0} loading={runs.isLoading} />
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-medium">Simulation Mode</h2>
+          <Link href="/simulations" className="text-sm text-cyan-300 hover:text-cyan-200">
+            Open Simulations
+          </Link>
+        </div>
+        <div className="space-y-2">
+          <p className="text-sm">
+            Status:{' '}
+            <span className={simulationConfig.data?.enabled ? 'text-emerald-300' : 'text-rose-300'}>
+              {simulationConfig.data?.enabled ? 'enabled' : 'disabled'}
+            </span>
+          </p>
+          {simulationConfig.data?.activeRunId && (
+            <p className="text-sm text-cyan-200">
+              Active scenario: {simulationConfig.data.activeScenarioName ?? 'unknown'} (run{' '}
+              {simulationConfig.data.activeRunId.slice(0, 8)})
+            </p>
+          )}
+          {simulationRuns.data?.runs[0] && (
+            <p className="text-sm text-slate-300">
+              Last run: {simulationRuns.data.runs[0].scenarioName} ({simulationRuns.data.runs[0].status}) · critical issues:{' '}
+              {simulationRuns.data.runs[0].summary.criticalIssueCount}
+            </p>
+          )}
+          {!simulationRuns.data?.runs[0] && (
+            <p className="text-sm text-slate-500">No simulation runs yet.</p>
+          )}
         </div>
       </section>
 

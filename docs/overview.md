@@ -11,7 +11,8 @@ Geekatplay Studio is a chat-operations platform that combines:
 - Redis queue + worker processing with retries and DLQ
 - Hybrid planner chain (Python planner -> OpenAI direct -> rules fallback)
 - Persistent storage for conversations/messages/runs/tool calls in Postgres (Prisma)
-- Dashboard for conversations, runs, evals, metrics, and incident simulations
+- Simulation server for scenario drills with critical-issue detection
+- Dashboard for conversations, runs, evals, metrics, incidents, and simulation runs
 
 ## Architecture snapshot
 - `apps/api`: runtime control plane and assistant orchestration

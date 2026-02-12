@@ -50,6 +50,26 @@ If OpenAI vars are missing or invalid, assistant routing still works via fallbac
 
 Run these before deploy to catch regressions in API/worker/web behavior.
 
+## Simulation server operations
+Enable simulation mode:
+1. Set `ENABLE_SIMULATION_MODE=true` in `.env`.
+2. Restart API + worker (`docker compose up --build` or `pnpm dev` restart).
+
+Run from dashboard:
+- Open `/simulations`
+- Pick a scenario and click `Run Scenario`
+- Monitor active scenario + step-level status + critical issue list
+
+Run from CLI:
+- `pnpm simulate -- --base-url http://localhost:3401 --scenario booking_happy_path`
+
+Simulation API endpoints:
+- `GET /v1/simulations/config`
+- `GET /v1/simulations/scenarios`
+- `POST /v1/simulations/run`
+- `GET /v1/simulations/runs`
+- `GET /v1/simulations/runs/:id`
+
 ## Operational diagnostics
 - API
   - health: `/v1/healthz`

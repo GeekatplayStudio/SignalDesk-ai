@@ -2,6 +2,10 @@
 FROM node:20-slim AS base
 WORKDIR /app
 
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
 # Enable corepack/pnpm
 RUN corepack enable
 
@@ -17,6 +21,11 @@ RUN pnpm --filter @agentops/api build
 FROM node:20-slim
 WORKDIR /app
 ENV NODE_ENV=production
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
 RUN corepack enable
 
 COPY --from=base /app /app

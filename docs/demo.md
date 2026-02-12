@@ -27,6 +27,16 @@ These steps assume Postgres + Redis are running, Prisma client is generated, and
 4) Open Evals page to review seeded runs.
 5) Open Metrics page to see aggregate stats.
 
+## Scenario 5: Live Simulation Drill (critical issue visibility)
+1) Set `ENABLE_SIMULATION_MODE=true` and restart API + worker.
+2) Open `/simulations` in the dashboard.
+3) Run `Safety Human Handoff`.
+4) Observe:
+   - active scenario label
+   - step-by-step tool choice and planner source
+   - critical issues (if any) in the run result
+5) Open `/incidents` and verify critical simulation outcomes are visible for ops tracking.
+
 ## Troubleshooting
 - If API returns 500, ensure Postgres/Redis are up and Prisma client is generated.
 - If dashboard can’t load, verify `NEXT_PUBLIC_API_BASE_URL` and API health (`/v1/readyz`).

@@ -6,6 +6,9 @@ type Incident = {
   id: string;
   type: string;
   status: string;
+  severity?: 'info' | 'critical';
+  source?: 'manual' | 'simulation';
+  summary?: string;
   createdAt: string;
 };
 
@@ -39,10 +42,14 @@ export default function IncidentsPage() {
             <div>
               <p className="text-sm font-medium">{incident.type}</p>
               <p className="text-xs text-slate-400">{new Date(incident.createdAt).toLocaleString()}</p>
+              {incident.summary && <p className="text-xs text-slate-300 mt-1">{incident.summary}</p>}
             </div>
-            <span className="text-xs px-2 py-1 rounded bg-slate-800 text-slate-200">
-              {incident.status}
-            </span>
+            <div className="flex flex-col items-end gap-1">
+              <span className={`text-xs px-2 py-1 rounded ${incident.severity === 'critical' ? 'bg-rose-500/20 text-rose-200' : 'bg-slate-800 text-slate-200'}`}>
+                {incident.status}
+              </span>
+              <span className="text-[11px] text-slate-400">{incident.source ?? 'manual'}</span>
+            </div>
           </div>
         ))}
         {!isLoading && (data?.incidents?.length ?? 0) === 0 && (

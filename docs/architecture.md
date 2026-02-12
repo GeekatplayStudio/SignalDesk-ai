@@ -12,7 +12,7 @@
   - Ingest router: `/v1/ingest/*`
   - Agent router: `/v1/agent/respond`, `/v1/agent/runs`, `/v1/conversations`
   - Eval router: `/v1/evals/*`
-  - Ops router: `/v1/metrics/overview`, `/v1/incidents/*`
+  - Ops router: `/v1/metrics/overview`, `/v1/incidents/*`, `/v1/simulations/*`
 - Worker (`apps/worker`)
   - BullMQ consumer
   - Retry with exponential backoff

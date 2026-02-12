@@ -70,10 +70,28 @@ pnpm build
 ```
 `pnpm test` runs API + worker Vitest suites and Python planner unit tests.
 
+## Simulation server (operator drills)
+- Simulation mode is disabled by default; enable with:
+  - `ENABLE_SIMULATION_MODE=true`
+- Dashboard tools:
+  - `http://localhost:3400/simulations` (or `/simulations` on your configured web host)
+- API endpoints:
+  - `GET /v1/simulations/config`
+  - `GET /v1/simulations/scenarios`
+  - `POST /v1/simulations/run`
+  - `GET /v1/simulations/runs`
+  - `GET /v1/simulations/runs/:id`
+- CLI runner:
+```bash
+pnpm simulate -- --base-url http://localhost:3401 --scenario booking_happy_path
+```
+The simulation runner reports active scenario, per-run status, and critical issues (tool mismatch, failed tool calls, fallback to rules, latency budget breaches).
+
 ## Required environment variables
 - `DATABASE_URL`
 - `REDIS_URL`
 - `NEXT_PUBLIC_API_BASE_URL`
+- `ENABLE_SIMULATION_MODE` (default: `false`)
 
 ## OpenAI environment variables (optional but recommended)
 - `OPENAI_API_KEY`
@@ -90,4 +108,5 @@ pnpm build
 - `docs/app-explainer.md`
 - `docs/architecture.md`
 - `docs/runbook.md`
+- `docs/simulation.md`
 - `docs/risks.md`

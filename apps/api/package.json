@@ -13,6 +13,7 @@
   "dependencies": {
     "@agentops/db": "workspace:*",
     "@agentops/shared": "workspace:*",
+    "@prisma/client": "^5.22.0",
     "bullmq": "^5.12.1",
     "@types/pg": "^8.11.10",
     "cors": "^2.8.5",

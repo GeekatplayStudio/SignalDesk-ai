@@ -14,6 +14,8 @@ export interface AppDiagnostics {
 export interface AppOptions {
   enableCors?: boolean;
   corsOrigin?: string;
+  enableSimulationMode?: boolean;
+  requireModelPlannerForSimulation?: boolean;
 }
 
 export function createApp(
@@ -83,7 +85,12 @@ export function createApp(
   if (agentService) {
     app.use(createAgentRouter(agentService));
     app.use(createEvalRouter());
-    app.use(createOpsRouter(agentService));
+    app.use(
+      createOpsRouter(agentService, {
+        simulationEnabled: options.enableSimulationMode ?? false,
+        requireModelPlannerForSimulation: options.requireModelPlannerForSimulation ?? false,
+      }),
+    );
   }
 
   return app;

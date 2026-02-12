@@ -56,6 +56,8 @@ async function main(): Promise<void> {
     {
       enableCors: env.enableCors,
       corsOrigin: env.corsOrigin,
+      enableSimulationMode: env.enableSimulationMode,
+      requireModelPlannerForSimulation: Boolean(env.openAiApiKey || env.pythonPlannerUrl),
     },
     agentService,
   );

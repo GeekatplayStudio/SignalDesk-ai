@@ -44,6 +44,7 @@ services:
     environment:
       PORT: 3001
       PYTHON_PLANNER_URL: http://ai-planner:8080
+      ENABLE_SIMULATION_MODE: ${ENABLE_SIMULATION_MODE:-false}
     depends_on:
       postgres:
         condition: service_healthy
@@ -54,7 +55,7 @@ services:
     ports:
       - "${ISO_API_PORT:-3401}:3001"
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:3001/v1/readyz || exit 1"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/v1/readyz', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -65,6 +66,8 @@ services:
       dockerfile: apps/worker/Dockerfile
     env_file:
       - ../.env
+    environment:
+      ENABLE_SIMULATION_MODE: ${ENABLE_SIMULATION_MODE:-false}
     depends_on:
       postgres:
         condition: service_healthy
@@ -85,9 +88,10 @@ services:
     ports:
       - "${ISO_WEB_PORT:-3400}:3000"
     environment:
+      PORT: 3000
       NEXT_PUBLIC_API_BASE_URL: ${ISO_PUBLIC_API_BASE_URL:-http://localhost:3401}
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:3000 || exit 1"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 15s
       timeout: 5s
       retries: 5

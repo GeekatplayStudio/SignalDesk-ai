@@ -68,7 +68,34 @@ Why this hybrid model was chosen:
 - Evals: golden-suite replay status
 - Metrics: aggregate reliability indicators
 - Incidents: simulation history
+- Simulations: scenario catalog, active run state, step-by-step execution, and critical issue reporting
 - Planner observability: each run now exposes planner source (`python` / `openai` / `rules`), with planner mix visible in overview.
+
+## Simulation server (live scenario runner)
+The API exposes a simulation service for controlled operator drills:
+- `GET /v1/simulations/config`: simulation mode + active scenario/run
+- `GET /v1/simulations/scenarios`: supported scenarios with live examples and critical checks
+- `POST /v1/simulations/run`: start a scenario run
+- `GET /v1/simulations/runs`: latest simulation run history
+- `GET /v1/simulations/runs/:id`: per-run detail
+
+How a simulation run works:
+1. Operator chooses a named scenario (for example, booking flow or legal-risk handoff).
+2. Service creates a dedicated simulation conversation and reuses real `AgentService.respond` path.
+3. Each turn is executed as a normal assistant interaction (planner -> tool call -> assistant reply persistence).
+4. Run evaluator checks critical constraints per turn:
+   - expected tool mismatch
+   - failed tool call
+   - missing assistant reply
+   - latency budget overrun
+   - fallback to rules when model planners are expected
+5. Run is finalized as `completed`, `completed_with_critical_issues`, or `failed`.
+6. Critical simulation outcomes are mirrored into incident history for ops visibility.
+
+Why this approach was chosen:
+- Uses the real production path instead of mock-only behavior.
+- Gives immediate operational signal on regressions before customer impact.
+- Keeps scenario definitions explicit and auditable in code.
 
 ## Common failure modes and handling
 - Python planner unavailable:

@@ -10,6 +10,7 @@ const navItems = [
   { href: '/agent-runs', label: 'Agent Runs' },
   { href: '/evals', label: 'Evals' },
   { href: '/metrics', label: 'Metrics' },
+  { href: '/simulations', label: 'Simulations' },
   { href: '/incidents', label: 'Incidents' },
 ];
 

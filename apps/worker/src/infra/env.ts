@@ -42,12 +42,20 @@ function optionalBoolean(name: string, fallback: boolean): boolean {
   throw new Error(`Invalid boolean for environment variable ${name}`);
 }
 
+function normalizeBullQueueName(name: string): string {
+  const trimmed = name.trim();
+  if (trimmed.length === 0) {
+    return 'queue_conversations';
+  }
+  return trimmed.replace(/:/g, '_');
+}
+
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   port: optionalNumber('PORT', 3005),
   databaseUrl: required('DATABASE_URL'),
   redisUrl: required('REDIS_URL'),
-  redisQueueKey: process.env.REDIS_QUEUE_KEY ?? 'queue:conversations',
+  redisQueueKey: normalizeBullQueueName(process.env.REDIS_QUEUE_KEY ?? 'queue_conversations'),
   redisDlqKey: process.env.REDIS_DLQ_KEY ?? 'dlq:conversations',
   idempotencyTtlSeconds: optionalNumber('IDEMPOTENCY_TTL_SECONDS', 60 * 60 * 24),
   rateLimitCapacity: optionalNumber('RATE_LIMIT_CAPACITY', 100),
