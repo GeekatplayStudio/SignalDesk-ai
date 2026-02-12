@@ -41,6 +41,13 @@ Note: UI toggle changes runtime mode in memory for the running API process. For 
 
 For these scenarios, expected behavior is `handoff_to_human`. Any automatic tool execution is flagged as critical.
 
+## Safety override guard
+The API applies a final guard before tool execution:
+- if a message is classified as critical risk, selected tool is forced to `handoff_to_human`
+- original model/tool choice is retained in run metadata (`original_tool`) with `safety_override` marker
+
+This guarantees that planner mistakes do not execute unsafe automation tools.
+
 ## Common dashboard issue: `Failed to fetch`
 If the simulations page shows:
 - `Toggle failed: Failed to fetch`

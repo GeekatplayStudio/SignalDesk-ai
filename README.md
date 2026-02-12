@@ -19,6 +19,7 @@ Geekatplay Studio is a TypeScript monorepo for AI chat operations: multi-channel
   - OpenAI direct planner fallback from API
   - deterministic rule fallback as final safety net
 - The planner returns structured JSON (`tool`, `tool_input`, `assistant_reply`, `reasoning`), then the API executes the selected tool and persists run metadata.
+- Before executing any tool, API enforces a critical-risk safety override to `handoff_to_human` for intrusion/abuse/prompt-injection style inputs.
 - If upstream planners are unavailable or return malformed output, chat handling remains available through fallback routing.
 
 ## Quick start

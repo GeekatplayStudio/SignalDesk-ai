@@ -31,6 +31,7 @@ Planner behavior:
 - If `PYTHON_PLANNER_URL` is configured, API calls the Python planner first.
 - If Python planner fails, API falls back to direct OpenAI planning when `OPENAI_API_KEY` exists.
 - If OpenAI fails too, API falls back to deterministic keyword routing.
+- Before tool execution, API enforces a final safety guard: critical-risk messages are force-routed to `handoff_to_human`.
 - JSON output includes:
   - `tool`
   - `tool_input`
@@ -85,6 +86,7 @@ Critical-risk drills now included:
 - `prompt_injection_overflow` (policy override + mass-action abuse)
 
 These scenarios require `handoff_to_human`; any non-handoff routing is surfaced as a critical issue.
+When safety guard override is applied, run metadata stores `safety_override` and `original_tool` in tool input for auditability.
 
 How a simulation run works:
 1. Operator chooses a named scenario (for example, booking flow or legal-risk handoff).
