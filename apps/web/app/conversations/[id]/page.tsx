@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { extractPlannerMeta, plannerBadgeClass } from '@/lib/agentRunUtils';
 
 type Message = {
   id: string;
@@ -16,7 +17,12 @@ type Run = {
   status: string;
   latencyMs?: number | null;
   createdAt: string;
-  toolCalls: { tool: string; status: string }[];
+  toolCalls: Array<{
+    tool: string;
+    status: string;
+    request?: unknown;
+    latencyMs?: number | null;
+  }>;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
@@ -80,6 +86,7 @@ export default function ConversationDetailPage() {
                   <TableHead>Run</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Latency</TableHead>
+                  <TableHead>Planner</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead>Tool Calls</TableHead>
                 </TableRow>
@@ -90,15 +97,34 @@ export default function ConversationDetailPage() {
                     <TableCell>{run.id.slice(0, 8)}</TableCell>
                     <TableCell>{run.status}</TableCell>
                     <TableCell>{run.latencyMs ? `${run.latencyMs} ms` : '—'}</TableCell>
+                    <TableCell className="text-xs text-slate-200">
+                      {(() => {
+                        const meta = extractPlannerMeta(run.toolCalls[0]);
+                        return (
+                          <div className="flex flex-col gap-1">
+                            <span className={`inline-flex w-fit rounded px-2 py-0.5 text-xs ${plannerBadgeClass(meta.source)}`}>
+                              {meta.source}
+                            </span>
+                            {meta.reasoning && (
+                              <span className="text-[11px] text-slate-400">{meta.reasoning}</span>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </TableCell>
                     <TableCell>{new Date(run.createdAt).toLocaleString()}</TableCell>
                     <TableCell className="text-xs text-slate-300">
-                      {run.toolCalls.map((t) => `${t.tool}${t.status === 'failed' ? ' (fail)' : ''}`).join(', ')}
+                      {run.toolCalls.map((t) => {
+                        const meta = extractPlannerMeta(t);
+                        const plannerPart = meta.source !== 'unknown' ? ` [${meta.source}]` : '';
+                        return `${t.tool}${t.status === 'failed' ? ' (fail)' : ''}${plannerPart}`;
+                      }).join(', ')}
                     </TableCell>
                   </TableRow>
                 ))}
                 {!isLoading && data?.runs?.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-slate-500">
+                    <TableCell colSpan={6} className="text-slate-500">
                       No runs yet.
                     </TableCell>
                   </TableRow>

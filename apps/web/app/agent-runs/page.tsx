@@ -1,18 +1,19 @@
 'use client';
 
 import { useMemo } from 'react';
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { ColumnDef, getCoreRowModel, useReactTable, flexRender } from '@tanstack/react-table';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { extractPlannerMeta, plannerBadgeClass, ToolCallRecord } from '@/lib/agentRunUtils';
 
-type ToolCall = { tool: string; status: string };
 type AgentRun = {
   id: string;
   conversationId: string;
   status: string;
   latencyMs?: number | null;
   createdAt: string;
-  toolCalls: ToolCall[];
+  toolCalls: ToolCallRecord[];
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
@@ -30,12 +31,37 @@ export default function AgentRunsPage() {
   const columns = useMemo<ColumnDef<AgentRun>[]>(
     () => [
       { header: 'Run', accessorKey: 'id' },
-      { header: 'Conversation', accessorKey: 'conversationId' },
+      {
+        header: 'Conversation',
+        accessorKey: 'conversationId',
+        cell: ({ row }) => (
+          <Link
+            href={`/conversations/${row.original.conversationId}`}
+            className="text-cyan-300 hover:text-cyan-200 underline-offset-2 hover:underline"
+          >
+            {row.original.conversationId}
+          </Link>
+        ),
+      },
       { header: 'Status', accessorKey: 'status' },
       {
         header: 'Latency',
         accessorKey: 'latencyMs',
         cell: (info) => (info.getValue<number | null>() ? `${info.getValue<number>()} ms` : '—'),
+      },
+      {
+        header: 'Planner',
+        cell: ({ row }) => {
+          const meta = extractPlannerMeta(row.original.toolCalls[0]);
+          return (
+            <div className="flex flex-col gap-1">
+              <span className={`inline-flex w-fit rounded px-2 py-0.5 text-xs ${plannerBadgeClass(meta.source)}`}>
+                {meta.source}
+              </span>
+              {meta.model && <span className="text-[11px] text-slate-400">{meta.model}</span>}
+            </div>
+          );
+        },
       },
       {
         header: 'Tool Calls',

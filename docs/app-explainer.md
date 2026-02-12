@@ -11,6 +11,7 @@ Geekatplay Studio is an operator-facing platform for AI chat management. It give
 - `apps/api`: ingest endpoints, agent routes, eval routes, ops metrics routes
 - `apps/worker`: async ingestion processor via Redis queue
 - `apps/web`: Next.js dashboard for operators
+- `apps/ai-planner`: Python FastAPI service that handles model-based tool planning
 - `packages/db`: Prisma schema and data access contract
 - `packages/shared`: shared types, prompts, and eval goldens
 
@@ -20,25 +21,28 @@ Geekatplay Studio is an operator-facing platform for AI chat management. It give
 3. API applies idempotency and tenant rate-limit checks.
 4. Accepted events are queued in Redis (BullMQ).
 5. Worker consumes queued events and persists them; retries on transient failures; pushes exhausted failures to DLQ.
-6. For direct assistant replies (`/v1/agent/respond`), API stores user message, asks planner to choose a tool, executes tool, stores assistant reply + run metadata.
+6. For direct assistant replies (`/v1/agent/respond`), API stores user message, asks planner chain to choose a tool, executes tool, stores assistant reply + run metadata.
 7. Dashboard pages query runs/messages/metrics/evals/incidents from API.
 
-## OpenAI assistant integration
+## Hybrid planner integration (Node + Python)
 The assistant routing path in `apps/api/src/core/agentService.ts` now uses `apps/api/src/core/assistantPlanner.ts`.
 
 Planner behavior:
-- If `OPENAI_API_KEY` exists, planner calls OpenAI Chat Completions with a strict JSON output contract.
+- If `PYTHON_PLANNER_URL` is configured, API calls the Python planner first.
+- If Python planner fails, API falls back to direct OpenAI planning when `OPENAI_API_KEY` exists.
+- If OpenAI fails too, API falls back to deterministic keyword routing.
 - JSON output includes:
   - `tool`
   - `tool_input`
   - `assistant_reply`
   - `reasoning`
 - API executes selected tool and stores planner metadata in `ToolCall.request`.
-- If OpenAI fails, times out, or returns invalid JSON, planner falls back to deterministic keyword routing.
+- A failure cooldown (`PYTHON_PLANNER_FAILURE_COOLDOWN_MS`) prevents repeated slow calls when Python planner is down.
 
 Why this hybrid model was chosen:
-- OpenAI improves routing quality and response quality for ambiguous user requests.
-- Deterministic fallback protects reliability during model/network incidents.
+- Python planner isolates AI-routing compute and connection pooling for lower planning latency.
+- Node API stays focused on I/O-heavy orchestration (ingest, persistence, queueing, dashboard APIs).
+- Multi-level fallback protects reliability during service/model/network incidents.
 - Structured JSON output keeps tool execution safe and auditable.
 
 ## Key design choices and rationale
@@ -52,6 +56,8 @@ Why this hybrid model was chosen:
   - Retries and DLQ provide operability.
 - Bounded chat context (last 12 messages) for OpenAI:
   - Prevents unbounded latency/cost growth on long conversations.
+- Planner failure cooldown:
+  - Avoids per-request timeout penalties when Python planner is unhealthy.
 - Tool execution recorded with request/response:
   - Enables debugging, audits, and metrics calculations.
 
@@ -62,11 +68,14 @@ Why this hybrid model was chosen:
 - Evals: golden-suite replay status
 - Metrics: aggregate reliability indicators
 - Incidents: simulation history
+- Planner observability: each run now exposes planner source (`python` / `openai` / `rules`), with planner mix visible in overview.
 
 ## Common failure modes and handling
+- Python planner unavailable:
+  - API auto-falls back to OpenAI direct planner.
+  - Cooldown prevents repeated slow failing calls until retry window.
 - OpenAI unavailable:
   - Service falls back to rule routing.
-  - `ToolCall.request` records fallback reason.
 - Redis unavailable:
   - Ingest/worker operations fail; API returns errors; compose health checks reveal status.
 - Postgres unavailable:

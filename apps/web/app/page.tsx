@@ -1,7 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { extractPlannerMeta, ToolCallRecord } from '@/lib/agentRunUtils';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
 
@@ -27,6 +29,29 @@ export default function HomePage() {
     queryFn: () => fetchJson<{ runs: Array<{ id: string; status: string; passRate: number; createdAt: string }> }>('/v1/evals/runs'),
   });
 
+  const runs = useQuery({
+    queryKey: ['agent-runs-overview'],
+    queryFn: () =>
+      fetchJson<{
+        runs: Array<{
+          id: string;
+          toolCalls: ToolCallRecord[];
+        }>;
+      }>('/v1/agent/runs'),
+  });
+
+  const plannerMix = runs.data?.runs.reduce(
+    (acc, run) => {
+      const source = extractPlannerMeta(run.toolCalls[0]).source;
+      if (source === 'python') acc.python += 1;
+      else if (source === 'openai') acc.openai += 1;
+      else if (source === 'rules') acc.rules += 1;
+      else acc.unknown += 1;
+      return acc;
+    },
+    { python: 0, openai: 0, rules: 0, unknown: 0 },
+  );
+
   return (
     <div className="space-y-6">
       <header className="flex items-center justify-between">
@@ -44,6 +69,19 @@ export default function HomePage() {
 
       <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
         <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-medium">Planner Mix</h2>
+          <span className="text-sm text-slate-400">{runs.data?.runs.length ?? 0} runs</span>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <PlannerCard label="Python" value={plannerMix?.python ?? 0} loading={runs.isLoading} />
+          <PlannerCard label="OpenAI" value={plannerMix?.openai ?? 0} loading={runs.isLoading} />
+          <PlannerCard label="Rules" value={plannerMix?.rules ?? 0} loading={runs.isLoading} />
+          <PlannerCard label="Unknown" value={plannerMix?.unknown ?? 0} loading={runs.isLoading} />
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+        <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-medium">Conversations</h2>
           <span className="text-sm text-slate-400">{conversations.data?.conversations.length ?? 0} total</span>
         </div>
@@ -52,7 +90,11 @@ export default function HomePage() {
           {conversations.data?.conversations.map((c) => (
             <div key={c.id} className="flex items-center justify-between rounded-lg border border-slate-800 px-3 py-2">
               <div>
-                <p className="text-sm font-medium">Conversation {c.id.slice(0, 8)}</p>
+                <p className="text-sm font-medium">
+                  <Link href={`/conversations/${c.id}`} className="text-cyan-300 hover:text-cyan-200 underline-offset-2 hover:underline">
+                    Conversation {c.id.slice(0, 8)}
+                  </Link>
+                </p>
                 <p className="text-xs text-slate-400">Created {new Date(c.createdAt).toLocaleString()}</p>
               </div>
             </div>
@@ -100,5 +142,14 @@ function StatCard({ label, value, loading }: { label: string; value: string; loa
         <p className="text-2xl font-semibold">{loading ? '…' : value}</p>
       </CardContent>
     </Card>
+  );
+}
+
+function PlannerCard({ label, value, loading }: { label: string; value: number; loading: boolean }) {
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900/30 p-3">
+      <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
+      <p className="text-xl font-semibold mt-1">{loading ? '…' : value}</p>
+    </div>
   );
 }

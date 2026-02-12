@@ -7,14 +7,32 @@
 4. Seed deterministic demo data: `pnpm seed`.
 5. Validate health:
    - API: `GET /v1/healthz` and `GET /v1/readyz`
+   - AI planner: `GET /health` on service `ai-planner`
    - Web: `GET /`
    - Redis: `redis-cli ping`
    - Postgres: `pg_isready`
+
+## Isolated compose mode (recommended when other local servers are running)
+Use:
+- `pnpm compose:isolated:up`
+- `pnpm compose:isolated:logs`
+- `pnpm compose:isolated:down`
+
+Default exposed host ports:
+- Web: `3400`
+- API: `3401`
+
+No host ports are exposed for Postgres/Redis in isolated mode, reducing interference risk.
 
 ## Required env vars
 - `DATABASE_URL`
 - `REDIS_URL`
 - `NEXT_PUBLIC_API_BASE_URL`
+
+## Python planner vars (recommended for performance)
+- `PYTHON_PLANNER_URL`
+- `PYTHON_PLANNER_TIMEOUT_MS`
+- `PYTHON_PLANNER_FAILURE_COOLDOWN_MS`
 
 ## Optional OpenAI vars
 - `OPENAI_API_KEY`
@@ -22,6 +40,7 @@
 - `OPENAI_BASE_URL`
 - `OPENAI_TIMEOUT_MS`
 
+If Python planner is unavailable, API falls back to direct OpenAI planning.
 If OpenAI vars are missing or invalid, assistant routing still works via fallback rules.
 
 ## Dry-run quality commands
@@ -44,9 +63,11 @@ Run these before deploy to catch regressions in API/worker/web behavior.
 
 ## Incident handling quick guide
 1. Confirm dependency health (Redis/Postgres/OpenAI reachability).
-2. Check latest failed tool calls in `AgentRun` records.
-3. Inspect DLQ entries for replay candidates.
-4. If OpenAI degraded, keep service up using fallback mode while investigating key/model/network issues.
+2. Confirm Python planner health.
+3. Check API logs for planner fallback events/timeouts.
+4. Check latest failed tool calls in `AgentRun` records.
+5. Inspect DLQ entries for replay candidates.
+6. If both planner paths are degraded, keep service up using rule fallback mode while investigating.
 
 ## Known problems to watch
 - Duplicate provider message IDs from upstream systems:

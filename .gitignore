@@ -22,3 +22,6 @@ playwright-report
 /test-results
 /.turbo
 /.nyc_output
+__pycache__/
+.venv/
+*.pyc

@@ -1,23 +1,96 @@
-import { prisma } from '@agentops/db';
 import { chooseTool, runTool, ToolCallResult } from './tooling';
 import { AssistantPlanner, AssistantPlan, ConversationTurn } from './assistantPlanner';
 import { AgentRespondInput } from './agentSchemas';
 
+interface ConversationRecord {
+  id: string;
+  tenantId?: string | null;
+  title?: string | null;
+  createdAt?: string | Date;
+}
+
+interface MessageRecord {
+  id: string;
+  conversationId: string;
+  role: string;
+  content: string;
+  createdAt?: string | Date;
+}
+
+interface ToolCallRecord {
+  tool: string;
+  status: string;
+  [key: string]: unknown;
+}
+
+interface AgentRunRecord {
+  id: string;
+  conversationId: string;
+  status: string;
+  latencyMs?: number | null;
+  createdAt?: string | Date;
+  toolCalls: ToolCallRecord[];
+}
+
+interface AgentServiceDb {
+  conversation: {
+    findUnique(args: { where: { id: string } }): Promise<ConversationRecord | null>;
+    create(args: { data: { id?: string; tenantId?: string; title?: string } }): Promise<ConversationRecord>;
+    findMany(args: { orderBy: { createdAt: 'desc' } }): Promise<ConversationRecord[]>;
+  };
+  message: {
+    create(args: { data: { conversationId: string; role: string; content: string } }): Promise<MessageRecord>;
+    findMany(args: {
+      where: { conversationId: string };
+      orderBy: { createdAt: 'asc' | 'desc' };
+      take?: number;
+    }): Promise<MessageRecord[]>;
+  };
+  agentRun: {
+    findMany(args: {
+      where?: { conversationId: string };
+      orderBy: { createdAt: 'desc' };
+      include: { toolCalls: true };
+    }): Promise<AgentRunRecord[]>;
+    create(args: {
+      data: {
+        conversationId: string;
+        status: string;
+        latencyMs: number;
+        toolCalls: {
+          create: {
+            tool: string;
+            status: string;
+            request: Record<string, unknown>;
+            response: Record<string, unknown>;
+            latencyMs: number;
+          };
+        };
+      };
+      include: { toolCalls: true };
+    }): Promise<AgentRunRecord>;
+  };
+}
+
 export interface AgentServiceDependencies {
-  db?: typeof prisma;
+  db?: AgentServiceDb;
   assistantPlanner?: AssistantPlanner;
   toolRunner?: typeof runTool;
   now?: () => number;
 }
 
 export class AgentService {
-  private readonly db: typeof prisma;
+  private readonly db: AgentServiceDb;
   private readonly assistantPlanner: AssistantPlanner;
   private readonly toolRunner: typeof runTool;
   private readonly now: () => number;
 
   constructor(deps: AgentServiceDependencies = {}) {
-    this.db = deps.db ?? prisma;
+    if (!deps.db) {
+      throw new Error('AgentService requires a db dependency');
+    }
+
+    this.db = deps.db;
     this.assistantPlanner = deps.assistantPlanner ?? {
       plan: async (input) => {
         const tool = chooseTool(input.latestUserMessage);
@@ -126,7 +199,7 @@ export class AgentService {
 
     return recent
       .reverse()
-      .map((message: { role: string; content: string }) => ({
+      .map((message) => ({
         role: normalizeRole(message.role),
         content: message.content,
       }));

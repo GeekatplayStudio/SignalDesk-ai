@@ -2,6 +2,7 @@ import { createApp } from './api/app';
 import { IngestionService } from './core/ingestionService';
 import { env } from './infra/env';
 import { AgentService } from './core/agentService';
+import { prisma } from '../../../packages/db/src/index';
 import { createAssistantPlanner } from './core/assistantPlanner';
 import { PrismaConversationEventRepository } from './infra/prismaConversationEventRepository';
 import { RedisIdempotencyStore } from './infra/redisIdempotencyStore';
@@ -27,13 +28,16 @@ async function main(): Promise<void> {
   });
 
   const assistantPlanner = createAssistantPlanner({
+    pythonPlannerUrl: env.pythonPlannerUrl,
+    pythonPlannerTimeoutMs: env.pythonPlannerTimeoutMs,
+    pythonPlannerFailureCooldownMs: env.pythonPlannerFailureCooldownMs,
     openAiApiKey: env.openAiApiKey,
     openAiModel: env.openAiModel,
     openAiBaseUrl: env.openAiBaseUrl,
     openAiTimeoutMs: env.openAiTimeoutMs,
     appName: env.appName,
   });
-  const agentService = new AgentService({ assistantPlanner });
+  const agentService = new AgentService({ assistantPlanner, db: prisma as never });
 
   const app = createApp(
     ingestionService,

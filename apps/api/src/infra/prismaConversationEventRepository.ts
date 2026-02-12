@@ -1,4 +1,4 @@
-import { prisma } from '@agentops/db';
+import { prisma } from '../../../../packages/db/src/index';
 import { ConversationEvent } from '../core/types';
 
 export class PrismaConversationEventRepository {
@@ -10,7 +10,7 @@ export class PrismaConversationEventRepository {
         id: event.event_id,
         providerMessageId: event.provider_message_id,
         channel: event.channel_type.toLowerCase(),
-        payload: event.raw_metadata,
+        payload: toJsonPayload(event.raw_metadata),
         conversationId: null,
       },
     });
@@ -20,4 +20,8 @@ export class PrismaConversationEventRepository {
     const count = await prisma.ingestEvent.count({ where: { providerMessageId } });
     return count;
   }
+}
+
+function toJsonPayload(value: Record<string, unknown>) {
+  return JSON.parse(JSON.stringify(value));
 }

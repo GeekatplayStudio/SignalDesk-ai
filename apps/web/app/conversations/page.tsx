@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { ColumnDef, getCoreRowModel, useReactTable, flexRender } from '@tanstack/react-table';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -25,7 +26,18 @@ export default function ConversationsPage() {
 
   const columns = useMemo<ColumnDef<Conversation>[]>(
     () => [
-      { header: 'Conversation', accessorKey: 'id' },
+      {
+        header: 'Conversation',
+        accessorKey: 'id',
+        cell: ({ row }) => (
+          <Link
+            href={`/conversations/${row.original.id}`}
+            className="text-cyan-300 hover:text-cyan-200 underline-offset-2 hover:underline"
+          >
+            {row.original.id}
+          </Link>
+        ),
+      },
       { header: 'Title', accessorKey: 'title' },
       {
         header: 'Created',

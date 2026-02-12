@@ -3,6 +3,7 @@
 ## System boundaries
 - External providers send inbound events (chat/sms/voice) into API ingest routes.
 - API owns validation, normalization, routing, persistence orchestration, and operator endpoints.
+- Python planner owns model-based tool decisioning and assistant reply draft generation.
 - Worker owns async queue processing and DLQ placement.
 - Web app reads API state and presents operations views.
 
@@ -16,6 +17,10 @@
   - BullMQ consumer
   - Retry with exponential backoff
   - DLQ write for exhausted attempts
+- AI Planner (`apps/ai-planner`)
+  - FastAPI service
+  - Calls OpenAI Chat Completions with connection pooling
+  - Returns structured tool plan JSON to API
 - Data
   - Postgres via Prisma (`packages/db`)
   - Redis for queue/idempotency/rate limits
@@ -34,8 +39,9 @@
 5. Return response payload to caller.
 
 Planner implementations:
-- OpenAI planner when `OPENAI_API_KEY` is set.
-- Rule-based planner as reliability fallback.
+- Python planner first when `PYTHON_PLANNER_URL` is configured.
+- OpenAI direct planner fallback when Python planner is unavailable.
+- Rule-based planner as final reliability fallback.
 
 ## Data model highlights
 - `Conversation`: chat thread root
@@ -49,12 +55,14 @@ Planner implementations:
 - Token bucket rate limiting by tenant
 - Queue decoupling between ingress and persistence
 - Worker retries and DLQ
+- Planner failure cooldown to avoid repeated timeout penalties
 - Health/readiness endpoints for service orchestration
 
 ## Security and safety posture (current)
 - Input validation via Zod for public ingest and agent endpoints
 - No secrets persisted in code
 - OpenAI integration uses env-based API key
+- Python planner is isolated as a separate service boundary
 - Guardrail/eval scaffolding present; can be expanded with production policy checks
 
 ## Known architecture gaps

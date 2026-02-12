@@ -10,7 +10,7 @@ export interface AssistantPlan {
   toolInput: Record<string, unknown>;
   assistantReply: string;
   reasoning: string;
-  source: 'openai' | 'rules';
+  source: 'python' | 'openai' | 'rules';
   model?: string;
 }
 
@@ -24,6 +24,9 @@ export interface AssistantPlanner {
 }
 
 export interface AssistantPlannerConfig {
+  pythonPlannerUrl?: string;
+  pythonPlannerTimeoutMs: number;
+  pythonPlannerFailureCooldownMs: number;
   openAiApiKey?: string;
   openAiModel: string;
   openAiBaseUrl: string;
@@ -32,26 +35,12 @@ export interface AssistantPlannerConfig {
   fetchImpl?: typeof fetch;
 }
 
-export function createAssistantPlanner(config: AssistantPlannerConfig): AssistantPlanner {
-  if (!config.openAiApiKey) {
-    return new RuleBasedAssistantPlanner();
-  }
-
-  return new OpenAiAssistantPlanner({
-    apiKey: config.openAiApiKey,
-    model: config.openAiModel,
-    baseUrl: config.openAiBaseUrl,
-    timeoutMs: config.openAiTimeoutMs,
-    appName: config.appName,
-    fetchImpl: config.fetchImpl ?? fetch,
-  });
-}
-
-class RuleBasedAssistantPlanner implements AssistantPlanner {
-  async plan(input: AssistantPlannerInput): Promise<AssistantPlan> {
-    const tool = chooseTool(input.latestUserMessage);
-    return buildRulePlan(tool, input.latestUserMessage, 'keyword_routing');
-  }
+interface PlannerApiPayload {
+  tool: unknown;
+  tool_input: unknown;
+  assistant_reply: unknown;
+  reasoning: unknown;
+  model?: unknown;
 }
 
 interface OpenAiPlannerRuntimeConfig {
@@ -63,12 +52,57 @@ interface OpenAiPlannerRuntimeConfig {
   fetchImpl: typeof fetch;
 }
 
+interface PythonPlannerRuntimeConfig {
+  url: string;
+  timeoutMs: number;
+  failureCooldownMs: number;
+  appName: string;
+  fetchImpl: typeof fetch;
+  fallbackPlanner: AssistantPlanner;
+}
+
 interface ChatCompletionsResponse {
   choices?: Array<{
     message?: {
       content?: string | null;
     };
   }>;
+}
+
+export function createAssistantPlanner(config: AssistantPlannerConfig): AssistantPlanner {
+  const fetchImpl = config.fetchImpl ?? fetch;
+  const rulePlanner = new RuleBasedAssistantPlanner();
+
+  const openAiPlanner: AssistantPlanner = config.openAiApiKey
+    ? new OpenAiAssistantPlanner({
+        apiKey: config.openAiApiKey,
+        model: config.openAiModel,
+        baseUrl: config.openAiBaseUrl,
+        timeoutMs: config.openAiTimeoutMs,
+        appName: config.appName,
+        fetchImpl,
+      })
+    : rulePlanner;
+
+  if (!config.pythonPlannerUrl) {
+    return openAiPlanner;
+  }
+
+  return new PythonServiceAssistantPlanner({
+    url: config.pythonPlannerUrl,
+    timeoutMs: config.pythonPlannerTimeoutMs,
+    failureCooldownMs: config.pythonPlannerFailureCooldownMs,
+    appName: config.appName,
+    fetchImpl,
+    fallbackPlanner: openAiPlanner,
+  });
+}
+
+class RuleBasedAssistantPlanner implements AssistantPlanner {
+  async plan(input: AssistantPlannerInput): Promise<AssistantPlan> {
+    const tool = chooseTool(input.latestUserMessage);
+    return buildRulePlan(tool, input.latestUserMessage, 'keyword_routing');
+  }
 }
 
 class OpenAiAssistantPlanner implements AssistantPlanner {
@@ -98,36 +132,77 @@ class OpenAiAssistantPlanner implements AssistantPlanner {
 
       if (!response.ok) {
         const detail = await safeResponseText(response);
-        return fallbackFromOpenAiFailure(input.latestUserMessage, `openai_http_${response.status}:${detail}`);
+        return fallbackFromPlannerFailure(input.latestUserMessage, `openai_http_${response.status}:${detail}`);
       }
 
       const payload = (await response.json()) as ChatCompletionsResponse;
       const content = payload.choices?.[0]?.message?.content;
       if (!content) {
-        return fallbackFromOpenAiFailure(input.latestUserMessage, 'openai_empty_content');
+        return fallbackFromPlannerFailure(input.latestUserMessage, 'openai_empty_content');
       }
 
-      const parsed = parseModelContent(content);
+      const parsed = parseJsonObject(content) as PlannerApiPayload | null;
       if (!parsed) {
-        return fallbackFromOpenAiFailure(input.latestUserMessage, 'openai_invalid_json');
+        return fallbackFromPlannerFailure(input.latestUserMessage, 'openai_invalid_json');
       }
 
-      const tool = normalizeToolName(parsed.tool, input.latestUserMessage);
-      const assistantReply = normalizeAssistantReply(parsed.assistant_reply, tool, input.latestUserMessage);
-
-      return {
-        tool,
-        toolInput: toRecord(parsed.tool_input),
-        assistantReply,
-        reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : 'openai_planner',
-        source: 'openai',
-        model: this.config.model,
-      };
+      return normalizePlannerPayload(parsed, input.latestUserMessage, 'openai', this.config.model);
     } catch (error) {
-      return fallbackFromOpenAiFailure(input.latestUserMessage, errorMessage(error));
+      return fallbackFromPlannerFailure(input.latestUserMessage, errorMessage(error));
     } finally {
       clearTimeout(timeout);
     }
+  }
+}
+
+class PythonServiceAssistantPlanner implements AssistantPlanner {
+  private unavailableUntilMs = 0;
+
+  constructor(private readonly config: PythonPlannerRuntimeConfig) {}
+
+  async plan(input: AssistantPlannerInput): Promise<AssistantPlan> {
+    if (Date.now() < this.unavailableUntilMs) {
+      return this.config.fallbackPlanner.plan(input);
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs);
+
+    try {
+      const response = await this.config.fetchImpl(`${stripTrailingSlash(this.config.url)}/v1/plan`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Application-Name': this.config.appName,
+        },
+        body: JSON.stringify({
+          latest_user_message: input.latestUserMessage,
+          conversation_history: input.conversationHistory.slice(-12).map((turn) => ({
+            role: turn.role,
+            content: truncate(turn.content, 1200),
+          })),
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        this.markUnavailable();
+        return this.config.fallbackPlanner.plan(input);
+      }
+
+      const payload = (await response.json()) as PlannerApiPayload;
+      const model = typeof payload.model === 'string' ? payload.model : undefined;
+      return normalizePlannerPayload(payload, input.latestUserMessage, 'python', model);
+    } catch (_error) {
+      this.markUnavailable();
+      return this.config.fallbackPlanner.plan(input);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  private markUnavailable(): void {
+    this.unavailableUntilMs = Date.now() + this.config.failureCooldownMs;
   }
 }
 
@@ -150,7 +225,24 @@ function buildMessages(input: AssistantPlannerInput): Array<{ role: 'system' | '
   return messages;
 }
 
-function fallbackFromOpenAiFailure(message: string, reason: string): AssistantPlan {
+function normalizePlannerPayload(
+  payload: PlannerApiPayload,
+  originalMessage: string,
+  source: AssistantPlan['source'],
+  model?: string,
+): AssistantPlan {
+  const tool = normalizeToolName(payload.tool, originalMessage);
+  return {
+    tool,
+    toolInput: toRecord(payload.tool_input),
+    assistantReply: normalizeAssistantReply(payload.assistant_reply, tool, originalMessage),
+    reasoning: typeof payload.reasoning === 'string' ? payload.reasoning : `${source}_planner`,
+    source,
+    model,
+  };
+}
+
+function fallbackFromPlannerFailure(message: string, reason: string): AssistantPlan {
   // Fallback preserves availability when model calls fail or return bad payloads.
   const tool = chooseTool(message);
   return buildRulePlan(tool, message, reason);
@@ -182,7 +274,7 @@ function normalizeToolName(value: unknown, originalMessage: string): ToolName {
   return chooseTool(originalMessage);
 }
 
-function parseModelContent(content: string): Record<string, unknown> | null {
+function parseJsonObject(content: string): Record<string, unknown> | null {
   try {
     const parsed = JSON.parse(content);
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
